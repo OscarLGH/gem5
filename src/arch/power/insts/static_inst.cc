@@ -46,6 +46,9 @@ PowerStaticInst::printReg(std::ostream &os, RegId reg) const
       case FloatRegClass:
         ccprintf(os, "f%d", reg.index());
         break;
+      case VecRegClass:
+        ccprintf(os, "v%d", reg.index());
+        break;
       case MiscRegClass:
         switch (reg.index()) {
           case 0: ccprintf(os, "cr"); break;
@@ -57,7 +60,7 @@ PowerStaticInst::printReg(std::ostream &os, RegId reg) const
         }
         break;
       default:
-        panic("printReg: Unrecognized register class.");
+        warn("printReg: Unrecognized register class.");
     }
 }
 

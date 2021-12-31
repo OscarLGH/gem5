@@ -1203,6 +1203,56 @@ statFunc(SyscallDesc *desc, ThreadContext *tc,
     return 0;
 }
 
+/// Target fstatat64() handler.
+template <class OS>
+SyscallReturn
+fstatatFunc(SyscallDesc *desc, ThreadContext *tc,
+              int dirfd, VPtr<> pathname,
+              VPtr<typename OS::tgt_stat> tgt_stat)
+{
+    auto process = tc->getProcessPtr();
+    if (dirfd != OS::TGT_AT_FDCWD) {
+        auto ffdp = std::dynamic_pointer_cast<HBFDEntry>((*process->fds)[dirfd]);
+        if (!ffdp)
+            return -EBADF;
+        int sim_fd = ffdp->getSimFD();
+        //warn("fstatat: first argument not AT_FDCWD; unlikely to work");
+#if NO_STAT64
+        struct stat  hostBuf;
+        int result = fstat(sim_fd, &hostBuf);
+#else
+        struct stat64  hostBuf;
+        int result = fstat64(sim_fd, &hostBuf);
+#endif
+        if (result < 0)
+            return -errno;
+
+        copyOutStatBuf<OS>(tgt_stat, &hostBuf);
+    } else {
+        std::string path;
+        if (!tc->getVirtProxy().tryReadString(path, pathname))
+            return -EFAULT;
+
+        // Adjust path for cwd and redirection
+        path = process->checkPathRedirect(path);
+        DPRINTF_SYSCALL(Verbose, "stat %s\n", path.c_str());
+
+#if NO_STAT64
+        struct stat  hostBuf;
+        int result = stat(path.c_str(), &hostBuf);
+#else
+        struct stat64 hostBuf;
+        int result = stat64(path.c_str(), &hostBuf);
+#endif
+        if (result < 0)
+            return -errno;
+
+        copyOutStatBuf<OS>(tgt_stat, &hostBuf);
+    }
+
+    return 0;
+}
+
 
 /// Target stat64() handler.
 template <class OS>

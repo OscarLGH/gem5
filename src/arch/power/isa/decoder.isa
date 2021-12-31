@@ -70,6 +70,7 @@ decode PO default Unknown::unknown() {
         ##include "vector/permute_formatting/perm_va_xo.isa"
         ##include "vector/permute_formatting/shift_va_xo.isa"
         ##include "vector/floating/fp_va_xo.isa"
+        ##include "vector/exclusive_or_based/permute_exclusive_or_va_xo.isa"
 
         default: decode VX_XO {
             ##include "vector/integer/integer_vx_xo.isa" 
@@ -81,13 +82,15 @@ decode PO default Unknown::unknown() {
             ##include "vector/permute_formatting/shift_vx_xo.isa"
             ##include "vector/permute_formatting/extract_vx_xo.isa"
             ##include "vector/bit_manipulation/bit_vx_xo.isa"
-
             ##include "vector/floating/fp_vx_xo.isa"
+            ##include "vector/exclusive_or_based/polynomial_vx_xo.isa"
+            ##include "vector/exclusive_or_based/aes_vx_xo.isa"
+            ##include "vector/exclusive_or_based/sha_sigma_vx_xo.isa"
             // ###4: decode VX_XO IntArithOp###
             
             default:decode VC_XO {
                 ##include "vector/integer/cmp_vc_xo.isa"
-
+				##include "vector/floating/cmp_vc_xo.isa"
                 // These instructions are of VX form and use bits 23 - 31 as XO.
                 default: decode VX_8XO {        
 

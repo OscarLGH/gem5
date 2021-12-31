@@ -1,0 +1,154 @@
+format IntArithOp{
+    1480: vsbox({{
+        ThreadContext *tc = xc->tcBase();
+        RegId src1_id(VecRegClass, VRA + 32);
+        RegId src2_id(VecRegClass, VRB + 32);
+        RegId dst_id(VecRegClass, VRT + 32);
+        auto src1_reg = tc->readVecReg(src1_id);
+        auto src1_val = src1_reg.as<uint8_t>();
+        auto src2_reg = tc->readVecReg(src2_id);
+        auto src2_val = src2_reg.as<uint8_t>();
+        auto dst_reg = tc->readVecReg(dst_id);
+        auto dst_val = dst_reg.as<uint8_t>();
+
+        Crypto aes;
+        aes.aesSubBytes(dst_val, src1_val);
+        tc->setVecReg(dst_id,dst_reg);
+    }});
+
+    1289: vcipherlast({{
+        ThreadContext *tc = xc->tcBase();
+        RegId src1_id(VecRegClass, VRA + 32);
+        RegId src2_id(VecRegClass, VRB + 32);
+        RegId dst_id(VecRegClass, VRT + 32);
+        auto src1_reg = tc->readVecReg(src1_id);
+        auto src1_val = src1_reg.as<uint8_t>();
+        auto src2_reg = tc->readVecReg(src2_id);
+        auto src2_val = src2_reg.as<uint8_t>();
+        auto dst_reg = tc->readVecReg(dst_id);
+        auto dst_val = dst_reg.as<uint8_t>();
+
+        Crypto aes;
+        uint8_t state[16];
+        uint8_t RoundKey[16];
+        uint8_t vtemp1[16];
+        uint8_t vtemp2[16];
+        uint8_t results[16];
+        for(int i = 0; i < 16; i++){
+            state[i] = src1_val[15-i];
+        }
+        for(int i = 0; i < 16; i++){
+            RoundKey[i] = src2_val[15-i];
+        }
+        aes.aesSubBytes(vtemp1, state);
+        aes.aesShiftRows(vtemp2, vtemp1);
+        aes.aesAddRoundKey(results, vtemp2, RoundKey);
+        for(int i = 0; i < 16; i++){
+            dst_val[i] = results[15-i];
+        }
+        tc->setVecReg(dst_id,dst_reg);
+    }});
+
+    1353: vncipherlast({{
+        ThreadContext *tc = xc->tcBase();
+        RegId src1_id(VecRegClass, VRA + 32);
+        RegId src2_id(VecRegClass, VRB + 32);
+        RegId dst_id(VecRegClass, VRT + 32);
+        auto src1_reg = tc->readVecReg(src1_id);
+        auto src1_val = src1_reg.as<uint8_t>();
+        auto src2_reg = tc->readVecReg(src2_id);
+        auto src2_val = src2_reg.as <uint8_t>();
+        auto dst_reg = tc->readVecReg(dst_id);
+        auto dst_val = dst_reg.as<uint8_t>();
+
+        Crypto aes;
+        uint8_t state[16];
+        uint8_t RoundKey[16];
+        uint8_t vtemp1[16];
+        uint8_t vtemp2[16];
+        uint8_t results[16];
+        for(int i = 0; i < 16; i++){
+            state[i] = src1_val[15-i];
+        }
+        for(int i = 0; i < 16; i++){
+            RoundKey[i] = src2_val[15-i];
+        }
+        aes.aesInvSubBytes(vtemp1, state);
+        aes.aesInvShiftRows(vtemp2, vtemp1);
+        aes.aesAddRoundKey(results, vtemp2, RoundKey);
+        for(int i = 0; i < 16; i++){
+            dst_val[i] = results[15-i];
+        }
+        tc->setVecReg(dst_id,dst_reg);
+    }});
+
+    1288: vcipher({{
+        ThreadContext *tc = xc->tcBase();
+        RegId src1_id(VecRegClass, VRA + 32);
+        RegId src2_id(VecRegClass, VRB + 32);
+        RegId dst_id(VecRegClass, VRT + 32);
+        auto src1_reg = tc->readVecReg(src1_id);
+        auto src1_val = src1_reg.as<uint8_t>();
+        auto src2_reg = tc->readVecReg(src2_id);
+        auto src2_val = src2_reg.as<uint8_t>();
+        auto dst_reg = tc->readVecReg(dst_id);
+        auto dst_val = dst_reg.as<uint8_t>();
+
+        Crypto aes;
+        uint8_t state[16];
+        uint8_t RoundKey[16];
+        uint8_t vtemp1[16];
+        uint8_t vtemp2[16];
+        uint8_t vtemp3[16];
+        uint8_t results[16];
+        for(int i = 0; i < 16; i++){
+            state[i] = src1_val[15-i];
+        }
+        for(int i = 0; i < 16; i++){
+            RoundKey[i] = src2_val[15-i];
+        }
+        aes.aesSubBytes(vtemp1, state);
+        aes.aesShiftRows(vtemp2, vtemp1);
+        aes.aesMixColumns(vtemp3, vtemp2);
+        aes.aesAddRoundKey(results, vtemp3, RoundKey);
+        for(int i = 0; i < 16; i++){
+            dst_val[i] = results[15-i];
+        }
+        tc->setVecReg(dst_id,dst_reg);
+    }});
+
+    1352: vncipher({{
+        ThreadContext *tc = xc->tcBase();
+        RegId src1_id(VecRegClass, VRA + 32);
+        RegId src2_id(VecRegClass, VRB + 32);
+        RegId dst_id(VecRegClass, VRT + 32);
+        auto src1_reg = tc->readVecReg(src1_id);
+        auto src1_val = src1_reg.as<uint8_t>();
+        auto src2_reg = tc->readVecReg(src2_id);
+        auto src2_val = src2_reg.as <uint8_t>();
+        auto dst_reg = tc->readVecReg(dst_id);
+        auto dst_val = dst_reg.as<uint8_t>();
+
+        Crypto aes;
+        uint8_t state[16];
+        uint8_t RoundKey[16];
+        uint8_t vtemp1[16];
+        uint8_t vtemp2[16];
+        uint8_t vtemp3[16];
+        uint8_t results[16];
+        for(int i = 0; i < 16; i++){
+            state[i] = src1_val[15-i];
+        }
+        for(int i = 0; i < 16; i++){
+            RoundKey[i] = src2_val[15-i];
+        }
+        aes.aesInvSubBytes(vtemp1, state);
+        aes.aesInvShiftRows(vtemp2, vtemp1);
+        aes.aesAddRoundKey(vtemp3, vtemp2, RoundKey);
+        aes.aesInvMixColumns(results, vtemp3);
+        for(int i = 0; i < 16; i++){
+            dst_val[i] = results[15-i];
+        }
+        tc->setVecReg(dst_id,dst_reg);
+    }});
+}

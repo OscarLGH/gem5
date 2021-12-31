@@ -89,6 +89,7 @@ class BranchOp : public PCDependentDisassembly
     }
 
     PowerISA::PCState branchTarget(ThreadContext *tc) const override;
+    PowerISA::PCState branchTarget(const PowerISA::PCState &branchPC) const override;
 
     /// Explicitly import the otherwise hidden branchTarget
     using StaticInst::branchTarget;
@@ -160,6 +161,7 @@ class BranchDispCondOp : public BranchCondOp
     }
 
     PowerISA::PCState branchTarget(ThreadContext *tc) const override;
+    PowerISA::PCState branchTarget(const PowerISA::PCState &branchPC) const override;
 
     /// Explicitly import the otherwise hidden branchTarget
     using StaticInst::branchTarget;

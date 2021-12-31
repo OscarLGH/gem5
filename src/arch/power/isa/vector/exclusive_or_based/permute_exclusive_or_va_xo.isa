@@ -1,0 +1,32 @@
+format IntArithOp {
+    45: vpermxor({{
+        ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra = vra_reg.as<uint8_t>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb = vrb_reg.as<uint8_t>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc = vrc_reg.as<uint8_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt = vrt_reg.as<uint8_t>();
+
+        uint8_t indexA;
+        uint8_t indexB;
+        uint8_t src1;
+        uint8_t src2;
+
+        for(int i=0; i < 16; i++) {
+            indexA = bits(vrc[i], 7, 4);
+            indexB = bits(vrc[i], 3, 0);
+            src1 = vra[15-indexA];
+            src2 = vrb[15-indexB];
+            vrt[i] = src1 ^ src2;
+        }
+
+        tc->setVecReg(vrt_id, vrt_reg);
+    }});
+}

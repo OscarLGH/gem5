@@ -58,7 +58,7 @@ class FloatOp : public PowerStaticInst
         rc(machInst.rc)
     {
     }
-
+  public:
     // Test for NaN (maximum biased exponent & non-zero fraction)
     inline bool
     isNan(uint32_t val_bits) const
@@ -485,7 +485,7 @@ class FloatOp : public PowerStaticInst
         return ret;
     }
     
-    inline float CONVERT_FROM_BFP64(double x) const
+    static float bfp32_CONVERT_FROM_BFP64(double x)
     {
         void *val_ptr = &x;
         uint32_t y;

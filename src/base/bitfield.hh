@@ -184,7 +184,7 @@ inline void data_order_adjust(unsigned char *p_c, int n)
  * bit_val:  0x0000
  * returned: 0xFF0F
  *
- * @ingroup api_bitfield
+ * @ingup api_bitfield
  */
 template <class T, class B>
 constexpr T
@@ -434,6 +434,25 @@ constexpr int
 ctz64(uint64_t value)
 {
     return value ? __builtin_ctzll(value) : 64;
+}
+
+/**
+ * right rotate n bits for a val
+ *
+ * @ingroup api_bitfield
+ */
+
+template <class T>
+constexpr T
+rrotate_bits(T val, unsigned num, unsigned bits_length)
+{
+    uint8_t temp;
+    for (int i = 0; i < num; i++) {
+        temp = bits(val, 0);
+        val = val >> 1;
+        val = insertBits(val, bits_length - 1, temp);
+    }
+    return val;
 }
 
 } // namespace gem5

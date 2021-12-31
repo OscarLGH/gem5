@@ -152,3 +152,8 @@ def bitfield PS            <9>;
 
 def bitfield DM            <9:8>;
 def bitfield SHW           <9:8>;
+
+// SHA-256&512 Sigma
+
+def bitfield ST             <15>;
+def bitfield SIX            <14:11>;

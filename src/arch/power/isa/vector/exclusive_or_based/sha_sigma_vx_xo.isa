@@ -1,0 +1,69 @@
+format IntArithOp{
+    1666:vshasigmaw({{
+        ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<uint32_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint32_t>();
+
+        uint32_t src;
+        for(int i = 0; i < 4; i++){
+            src = vra_val[i];
+            if(ST == 0 && bits(SIX, i) == 0){
+                vrt_val[i] = rrotate_bits(src, 7, 32) ^
+                             rrotate_bits(src, 18, 32) ^ (src >> 3);
+            }
+            if(ST == 0 && bits(SIX, i) == 1){
+                vrt_val[i] = rrotate_bits(src, 17, 32) ^
+                             rrotate_bits(src, 19, 32) ^ (src >> 10);
+            }
+            if(ST == 1 && bits(SIX, i) == 0){
+                vrt_val[i] = rrotate_bits(src, 2, 32) ^
+                             rrotate_bits(src, 13, 32) ^
+                             rrotate_bits(src, 22, 32);
+            }
+            if(ST == 1 && bits(SIX, i) == 1){
+                vrt_val[i] = rrotate_bits(src, 6, 32) ^
+                             rrotate_bits(src, 11, 32) ^
+                             rrotate_bits(src, 25, 32);
+            }
+        }
+        tc->setVecReg(vrt_id, vrt_reg);
+    }});
+
+    1730:vshasigmad({{
+        ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<uint64_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint64_t>();
+
+        uint64_t src;
+        for(int i = 0; i < 2; i++){
+            src = vra_val[i];
+            if(ST == 0 && bits(SIX, 2*i+1) == 0){
+                vrt_val[i] = rrotate_bits(src, 1, 64) ^
+                             rrotate_bits(src, 8, 64) ^ (src >> 7);
+            }
+            if(ST == 0 && bits(SIX, 2*i+1) == 1){
+                vrt_val[i] = rrotate_bits(src, 19, 64) ^
+                             rrotate_bits(src, 61, 64) ^ (src >> 6);
+            }
+            if(ST == 1 && bits(SIX, 2*i+1) == 0){
+                vrt_val[i] = rrotate_bits(src, 28, 64) ^
+                             rrotate_bits(src, 34, 64) ^
+                             rrotate_bits(src, 39, 64);
+            }
+            if(ST == 1 && bits(SIX, 2*i+1) == 1){
+                vrt_val[i] = rrotate_bits(src, 14, 64) ^
+                             rrotate_bits(src, 18, 64) ^
+                             rrotate_bits(src, 41, 64);
+            }
+        }
+        tc->setVecReg(vrt_id, vrt_reg);
+    }});
+}

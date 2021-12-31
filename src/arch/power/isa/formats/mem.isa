@@ -191,6 +191,11 @@ def template StoreInitiateAcc {{
         %(ea_code)s;
 
         if (fault == NoFault) {
+            %(update_code)s;
+            %(op_wb)s;
+        }
+
+        if (fault == NoFault) {
             %(memacc_code)s;
         }
 

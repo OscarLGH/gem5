@@ -60,7 +60,7 @@ format VsxFloatArithOp {
         */
 
         fpscr_0 = fp_before_cal(fpscr_0);
-        vrt_val[3] = CONVERT_FROM_BFP64(vrb_val[1]);
+        vrt_val[3] = bfp32_CONVERT_FROM_BFP64(vrb_val[1]);
         vrt_val[2] = vrt_val[3];
         FPSCR = fpscr_0;
         tc->setVecReg(vrt_id, vrt_reg);

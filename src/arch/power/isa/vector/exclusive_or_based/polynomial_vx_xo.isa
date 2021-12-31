@@ -1,0 +1,188 @@
+format IntArithOp{
+
+    1032:vpmsumb({{
+        ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<uint8_t>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<uint8_t>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<uint8_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint16_t>();
+
+        uint16_t prod[16];
+        uint8_t srcA;
+        uint8_t srcB;
+        uint8_t gbit;
+
+        for(int i = 0 ; i < 16 ; i++){
+            prod[i] = insertBits(prod[i], 15, 1, 0b0 << 14);
+            srcA = vra_val[i];
+            srcB = vrb_val[i];
+            for(int j = 0; j < 8; j++){
+                for(int k = 0; k < j + 1; k++){
+                    gbit = bits(srcA, 7 - k) & bits(srcB, 7 - j + k);
+                    prod[i] = insertBits(prod[i], 15 - j,
+                                         gbit ^ bits(prod[i], 15 - j));
+                }
+            }
+            for(int j = 8; j < 15; j++){
+                for(int k = j - 7; k < 8; k++){
+                    gbit = bits(srcA, 7 - k) & bits(srcB, 7 - j + k);
+                    prod[i] = insertBits(prod[i], 15 - j,
+                                         gbit ^ bits(prod[i], 15 - j));
+                }
+            }
+        }
+        for(int i = 0; i < 8; i++){
+            vrt_val[i] = (prod[2*i] ^ prod[2*i+1]) >> 1;
+        }
+        tc->setVecReg(vrt_id, vrt_reg);
+    }});
+
+    1096:vpmsumh({{
+        ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<uint16_t>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<uint16_t>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<uint16_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint32_t>();
+
+        uint32_t prod[8];
+        uint16_t srcA;
+        uint16_t srcB;
+        uint8_t gbit;
+
+        for(int i = 0 ; i < 8 ; i++){
+            prod[i] = insertBits(prod[i], 31, 1, 0b0 << 30);
+            srcA = vra_val[i];
+            srcB = vrb_val[i];
+            for(int j = 0; j < 16; j++){
+                for(int k = 0; k < j + 1; k++){
+                    gbit = bits(srcA, 15 - k) & bits(srcB, 15 - j + k);
+                    prod[i] = insertBits(prod[i], 31 - j,
+                                         gbit ^ bits(prod[i], 31 - j));
+                }
+            }
+            for(int j = 16; j < 31; j++){
+                for(int k = j - 15; k < 16; k++){
+                    gbit = bits(srcA, 15 - k) & bits(srcB, 15 - j + k);
+                    prod[i] = insertBits(prod[i], 31 - j,
+                                         gbit ^ bits(prod[i], 31 - j));
+                }
+            }
+        }
+        for(int i = 0; i < 4; i++){
+            vrt_val[i] = (prod[2*i] ^ prod[2*i+1]) >> 1;
+        }
+        tc->setVecReg(vrt_id, vrt_reg);
+    }});
+
+    1160:vpmsumw({{
+        ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<uint32_t>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<uint32_t>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<uint32_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint64_t>();
+
+        uint64_t prod[4];
+        uint32_t srcA;
+        uint32_t srcB;
+        uint8_t gbit;
+
+        for(int i = 0 ; i < 4 ; i++){
+            prod[i] = insertBits(prod[i], 63, 1, 0b0 << 62);
+            srcA = vra_val[i];
+            srcB = vrb_val[i];
+            for(int j = 0; j < 32; j++){
+                for(int k = 0; k < j + 1; k++){
+                    gbit = bits(srcA, 31 - k) & bits(srcB, 31 - j + k);
+                    prod[i] = insertBits(prod[i], 63 - j,
+                                         gbit ^ bits(prod[i], 63 - j));
+                }
+            }
+            for(int j = 32; j < 63; j++){
+                for(int k = j - 31; k < 32; k++){
+                    gbit = bits(srcA, 31 - k) & bits(srcB, 31 - j + k);
+                    prod[i] = insertBits(prod[i], 63 - j,
+                                         gbit ^ bits(prod[i], 63 - j));
+                }
+            }
+        }
+        for(int i = 0; i < 2; i++){
+            vrt_val[i] = (prod[2*i] ^ prod[2*i+1]) >> 1;
+        }
+        tc->setVecReg(vrt_id, vrt_reg);
+    }});
+
+    1224:vpmsumd({{
+        ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<uint64_t>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<uint64_t>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<uint64_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint64_t>();
+
+        //__uint128_t prod[2];
+        uint64_t temp[4];
+        uint64_t res[2];
+        uint64_t srcA;
+        uint64_t srcB;
+        uint8_t gbit;
+
+        for(int i = 0 ; i < 2; i++){
+            temp[i*2] = insertBits(temp[i*2], 63, 0, 0b0 << 63);
+            temp[i*2+1] = insertBits(temp[i*2+1], 63, 1, 0b0 << 62);
+            srcA = vra_val[i];
+            srcB = vrb_val[i];
+            for(int j = 0; j < 64; j++){
+                for(int k = 0; k < j + 1; k++){
+                    gbit = bits(srcA, 63 - k) & bits(srcB, 63 - j + k);
+                    temp[i*2] = insertBits(temp[i*2], 63 - j,
+                                           gbit ^ bits(temp[i*2], 63 - j));
+                }
+            }
+            for(int j = 64; j < 127; j++){
+                for(int k = j - 63; k < 64; k++){
+                    gbit = bits(srcA, 63 - k) & bits(srcB, 63 - j + k);
+                    temp[i*2+1] = insertBits(temp[i*2+1], 127 - j,
+                                        gbit ^ bits(temp[i*2+1], 127 - j));
+                }
+            }
+            //prod[i] = temp[i*2] | temp[i*2+1];
+        }
+        res[0] = (temp[1] ^ temp[3]);
+        res[1] = (temp[0] ^ temp[2]);
+        vrt_val[0] = res[0] >> 1;
+        vrt_val[0] = insertBits(vrt_val[0], 63, bits(res[1], 0));
+        vrt_val[1] = res[1] >> 1;
+        tc->setVecReg(vrt_id, vrt_reg);
+    }});
+}

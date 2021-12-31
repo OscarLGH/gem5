@@ -556,6 +556,49 @@ placed into word element i of VSR[VRT+32].
         tc->setVecReg(vrt_id, vrt_reg);
     }});
 
+	1792:vsubsbs({{
+		ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<int8_t>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<int8_t>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<int8_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<int8_t>();
+
+        /*
+        //comment
+        */
+
+        /* CODE SEG 1 */
+        //code seg 1
+        /* CODE SEG 1 END */
+
+   		for (auto i = 0; i < 16; i++) {
+
+            /* CODE SEG 2 */
+            int32_t sum = vra_val[i] - vrb_val[i];
+            bool sat;
+            std::tie(sum, sat) = si8_CLAMP(sum);
+            uint64_t vscr = tc->readIntReg(INTREG_VSCR);
+        vscr |= (sat & 0x10001);
+        tc->setIntReg(INTREG_VSCR, vscr);
+            vrt_val[i] = sum;
+            /* CODE SEG 2 END */
+        }
+
+        /* CODE SEG 3 */
+        //code seg 3
+        /* CODE SEG 3 END */
+
+        tc->setVecReg(vrt_id, vrt_reg);	
+	}});
+
     1856:vsubshs({{
         ThreadContext *tc = xc->tcBase();
         RegId vra_id(VecRegClass, VRA + 32);
@@ -954,6 +997,46 @@ placed into word element i of VSR[VRT+32].
 
         tc->setVecReg(vrt_id, vrt_reg);
     }});
+	
+	1344:vsubcuq({{
+		ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<__uint128_t>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<__uint128_t>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<__uint128_t>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<__uint128_t>();
+
+        /*
+        //comment
+        */
+
+        /* CODE SEG 1 */
+        //code seg 1
+        /* CODE SEG 1 END */
+
+        for (auto i = 0; i < 1; i++) {
+
+            /* CODE SEG 2 */
+           // __uint128_t sum1 = vra_val[i] +  ~vrb_val[i] + 1;
+            __uint128_t cin1 =  vra_val[i] < vrb_val[i] ? 0:1;
+			vrt_val[i] = cin1;
+            /* CODE SEG 2 END */
+        }
+
+        /* CODE SEG 3 */
+        //code seg 3
+        /* CODE SEG 3 END */
+
+        tc->setVecReg(vrt_id, vrt_reg);
+	}});
+
 
     776:vmulesb({{
         ThreadContext *tc = xc->tcBase();

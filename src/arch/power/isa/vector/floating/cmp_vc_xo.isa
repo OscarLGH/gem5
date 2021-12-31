@@ -1,0 +1,168 @@
+format VsxFloatArithOp{
+	
+	966:vcmpbfp({{
+		
+		
+		ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<float>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<float>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<float>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint32_t>();
+
+        /*
+        //comment
+        */
+
+        /* CODE SEG 1 */
+        //code seg 1
+        /* CODE SEG 1 END */
+		uint32_t le = 0;
+		uint32_t ge = 0;
+		uint32_t all_zero = 1;
+		for(auto i = 0; i < 4; i++){
+			le = vra_val[i] <= vrb_val[i] ? 0 : 1;
+			ge = vra_val[i] >= (-vrb_val[i]) ? 0 : 1;
+			if(le | ge){
+				all_zero = 0;
+			}
+			vrt_val[i] =  ((le<<1)|ge) << 30;
+		}
+		if(RC21)
+			CR = insertCRField(CR, 6, all_zero << 1);
+		tc->setVecReg(vrt_id, vrt_reg);
+	}});
+		
+	198:vcmpeqfp({{
+		ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<float>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<float>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<float>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint32_t>();
+
+        /*
+        //comment
+        */
+
+        /* CODE SEG 1 */
+        //code seg 1
+        /* CODE SEG 1 END */
+
+		uint32_t all_true = 1;
+		uint32_t all_false = 1;
+
+		for (auto i = 0; i < 4; i++) {
+			if (vra_val[i] == vrb_val[i]) {
+				vrt_val[i] = 0xFFFFFFFF; 
+				all_true = 0;
+			}
+			else {
+				vrt_val[i] = 0x00000000; 
+				all_false = 0;
+			}
+		}
+
+		if (RC21)
+			CR = insertCRField(CR, 6, ((all_true << 1) | (all_false << 3)));
+		tc->setVecReg(vrt_id, vrt_reg);
+		
+	}});
+
+	454:vcmpegfp({{
+		ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<float>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<float>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<float>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint32_t>();
+
+        /*
+        //comment
+        */
+
+        /* CODE SEG 1 */
+        //code seg 1
+        /* CODE SEG 1 END */
+				uint32_t all_true = 1;
+		uint32_t all_false = 1;
+
+		for (auto i = 0; i < 4; i++) {
+			if (vra_val[i] >= vrb_val[i]) {
+				vrt_val[i] = 0xFFFFFFFF; 
+				all_true = 0;
+			}
+			else {
+				vrt_val[i] = 0x00000000; 
+				all_false = 0;
+			}
+		}
+
+		if (RC21)
+			CR = insertCRField(CR, 6, ((all_true << 1) | (all_false << 3)));
+		tc->setVecReg(vrt_id, vrt_reg);
+	}});
+
+	710:vcmpgtfp({{
+	    ThreadContext *tc = xc->tcBase();
+        RegId vra_id(VecRegClass, VRA + 32);
+        RegId vrb_id(VecRegClass, VRB + 32);
+        RegId vrc_id(VecRegClass, VRC + 32);
+        RegId vrt_id(VecRegClass, VRT + 32);
+        auto vra_reg = tc->readVecReg(vra_id);
+        auto vra_val = vra_reg.as<float>();
+        auto vrb_reg = tc->readVecReg(vrb_id);
+        auto vrb_val = vrb_reg.as<float>();
+        auto vrc_reg = tc->readVecReg(vrc_id);
+        auto vrc_val = vrc_reg.as<float>();
+        auto vrt_reg = tc->readVecReg(vrt_id);
+        auto vrt_val = vrt_reg.as<uint32_t>();
+
+        /*
+        //comment
+        */
+
+        /* CODE SEG 1 */
+        //code seg 1
+        /* CODE SEG 1 END */
+				uint32_t all_true = 1;
+		uint32_t all_false = 1;
+
+		for (auto i = 0; i < 4; i++) {
+			if (vra_val[i] > vrb_val[i]) {
+				vrt_val[i] = 0xFFFFFFFF; 
+				all_true = 0;
+			}
+			else {
+				vrt_val[i] = 0x00000000; 
+				all_false = 0;
+			}
+		}
+
+		if (RC21)
+			CR = insertCRField(CR, 6, ((all_true << 1) | (all_false << 3)));
+		tc->setVecReg(vrt_id, vrt_reg);
+	}});
+
+}
