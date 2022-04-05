@@ -7,7 +7,7 @@ format VsxFloatArithOp {
         VSt_df[1] = tmp;
         VSt_df[0] = 0;
         FPSCR = fpscr_0;
-    }});
+    }},[SimdAddOp]);
 
     0:xsaddsp({{
         Fpscr fpscr_0 = FPSCR;
