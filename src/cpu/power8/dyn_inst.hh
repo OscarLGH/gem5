@@ -58,7 +58,7 @@
 #include "cpu/inst_seq.hh"
 #include "cpu/power8/cpu.hh"
 #include "cpu/power8/dyn_inst_ptr.hh"
-#include "cpu/power8/lsq_unit.hh"
+#include "cpu/power8/O3Execution/lsq_unit.hh"
 #include "cpu/op_class.hh"
 #include "cpu/reg_class.hh"
 #include "cpu/static_inst.hh"

@@ -120,8 +120,8 @@ class POWER8CPU(BaseCPU):
     trapLatency = Param.Cycles(13, "Trap latency")
     fetchTrapLatency = Param.Cycles(1, "Fetch trap latency")
 
-    backComSize = Param.Unsigned(5, "Time buffer size for backwards communication")
-    forwardComSize = Param.Unsigned(5, "Time buffer size for forward communication")
+    backComSize = Param.Unsigned(23, "Time buffer size for backwards communication")
+    forwardComSize = Param.Unsigned(23, "Time buffer size for forward communication")
 
     LQEntries = Param.Unsigned(32, "Number of load queue entries")
     SQEntries = Param.Unsigned(32, "Number of store queue entries")

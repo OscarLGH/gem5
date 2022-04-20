@@ -77,15 +77,20 @@ struct IFXRStruct
 };
 
 /** Early Decode. */
-struct EDStruct
+struct EarlyDecodeStruct
 {
     int size;
+
+    DynInstPtr insts[MaxWidth];
+    Fault fetchFault;
+    InstSeqNum fetchFaultSN;
+    bool clearFetchFault;
 
     /** The IBUF can hold up to 32 entries, each
     four instructions wide. Each thread can have four entries in
     SMT8 mode, eight entries in SMT4 mode and 16 entries
     in SMT2 and ST modes. */
-    DynInstPtr insts[32][4];
+    DynInstPtr ibuf[32][4];
 };
 
 /** Group formation Struct. */
@@ -101,7 +106,7 @@ struct GFStruct
     branch instructions in SMT modes per cycle for
     group formation. */
 
-    DynInstPtr ibuf[2][8];
+    DynInstPtr groupInsts[2][8];
 };
 
 /** Group formation 2 Struct. */
@@ -182,6 +187,141 @@ struct IssueStruct
     int size;
 
     DynInstPtr insts[MaxWidth];
+};
+
+struct IF0Struct
+{
+    TheISA::PCState IFAR[MaxThreads];
+};
+
+struct IF1Struct
+{
+    TheISA::PCState IFAR;
+    unsigned long GHV[8];
+    DynInstPtr predecodedInsts[MaxWidth];
+};
+
+struct IF2Struct
+{
+    bool branchPredResult;
+    unsigned long countCacheResult;
+    unsigned long linkStackResult;
+    DynInstPtr iCacheInsts[MaxWidth];
+    unsigned long IDirResult;
+    unsigned long IERATResult;
+
+    /* ori fetch struct */
+    int size;
+
+    DynInstPtr insts[MaxWidth];
+    Fault fetchFault;
+    InstSeqNum fetchFaultSN;
+    bool clearFetchFault;
+};
+
+struct IF3Struct
+{
+    bool branchRedirect;
+    TheISA::PCState predPC;
+    DynInstPtr earlyDecodedInsts[MaxWidth];
+};
+
+struct IF4Struct
+{
+     /** The IBUF can hold up to 32 entries, each
+    four instructions wide. Each thread can have four entries in
+    SMT8 mode, eight entries in SMT4 mode and 16 entries
+    in SMT2 and ST modes. */
+    DynInstPtr ibuf[32][4];
+};
+
+/** Group formation Struct. */
+struct ID1Struct
+{
+    int size;
+
+    /** Instructions are retrieved from the
+    IBUF and collected into groups.Thread priority logic selects
+    one group of up to six non-branch and two branch
+    instructions in ST mode or two groups (from two
+    different threads) of up to three non-branch and one
+    branch instructions in SMT modes per cycle for
+    group formation. */
+
+    DynInstPtr groupInsts[2][8];
+    unsigned long etag1;
+    unsigned long etag2;
+};
+
+/** Group formation Struct. */
+struct ID2Struct
+{
+    int size;
+
+    /** Instructions are retrieved from the
+    IBUF and collected into groups.Thread priority logic selects
+    one group of up to six non-branch and two branch
+    instructions in ST mode or two groups (from two
+    different threads) of up to three non-branch and one
+    branch instructions in SMT modes per cycle for
+    group formation. */
+
+    DynInstPtr groupInsts[2][8];
+    unsigned long etag1;
+    unsigned long etag2;
+};
+
+/** Group formation Struct. */
+struct ID3Struct
+{
+    int size;
+
+    /** Instructions are retrieved from the
+    IBUF and collected into groups.Thread priority logic selects
+    one group of up to six non-branch and two branch
+    instructions in ST mode or two groups (from two
+    different threads) of up to three non-branch and one
+    branch instructions in SMT modes per cycle for
+    group formation. */
+
+    DynInstPtr groupInsts[2][8];
+    unsigned long etag1;
+    unsigned long etag2;
+};
+
+/** Group formation Struct. */
+struct ID4Struct
+{
+    int size;
+
+    /** Instructions are retrieved from the
+    IBUF and collected into groups.Thread priority logic selects
+    one group of up to six non-branch and two branch
+    instructions in ST mode or two groups (from two
+    different threads) of up to three non-branch and one
+    branch instructions in SMT modes per cycle for
+    group formation. */
+
+    DynInstPtr groupInsts[2][8];
+    unsigned long etag1;
+    unsigned long etag2;
+};
+
+struct ID5Struct
+{
+    int size;
+
+    /** Instructions are retrieved from the
+    IBUF and collected into groups.Thread priority logic selects
+    one group of up to six non-branch and two branch
+    instructions in ST mode or two groups (from two
+    different threads) of up to three non-branch and one
+    branch instructions in SMT modes per cycle for
+    group formation. */
+
+    DynInstPtr groupInsts[2][8];
+    unsigned long etag1;
+    unsigned long etag2;
 };
 
 /** Struct that defines all backwards communication. */
@@ -293,6 +433,13 @@ struct TimeStruct
 
     CommitComm commitInfo[MaxThreads];
 
+    bool id1Block[MaxThreads];
+    bool id2Block[MaxThreads];
+    bool id3Block[MaxThreads];
+    bool id4Block[MaxThreads];
+
+    bool earlyDecodeBlock[MaxThreads];
+    bool earlyDecodeUnblock[MaxThreads];
     bool decodeBlock[MaxThreads];
     bool decodeUnblock[MaxThreads];
     bool renameBlock[MaxThreads];

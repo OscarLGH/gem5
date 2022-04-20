@@ -54,16 +54,31 @@
 #include "base/statistics.hh"
 #include "config/the_isa.hh"
 #include "cpu/power8/comm.hh"
-#include "cpu/power8/commit.hh"
-#include "cpu/power8/decode.hh"
+#include "cpu/power8/ISU/commit.hh"
+#include "cpu/power8/IFU/decode.hh"
 #include "cpu/power8/dyn_inst_ptr.hh"
-#include "cpu/power8/fetch.hh"
-#include "cpu/power8/free_list.hh"
-#include "cpu/power8/iew.hh"
+#include "cpu/power8/IFU/fetch.hh"
+
+/*
+#include "cpu/power8/IFU/IF_0.hh"
+#include "cpu/power8/IFU/IF_1.hh"
+#include "cpu/power8/IFU/IF_2.hh"
+#include "cpu/power8/IFU/IF_3.hh"
+#include "cpu/power8/IFU/IF_4.hh"
+
+#include "cpu/power8/IFU/ID_1.hh"
+#include "cpu/power8/IFU/ID_2.hh"
+#include "cpu/power8/IFU/ID_3.hh"
+#include "cpu/power8/IFU/ID_4.hh"
+*/
+
+#include "cpu/power8/IFU/early_decode.hh"
+#include "cpu/power8/ISU/free_list.hh"
+#include "cpu/power8/O3Execution/iew.hh"
 #include "cpu/power8/limits.hh"
-#include "cpu/power8/rename.hh"
-#include "cpu/power8/rob.hh"
-#include "cpu/power8/scoreboard.hh"
+#include "cpu/power8/ISU/rename.hh"
+#include "cpu/power8/ISU/rob.hh"
+#include "cpu/power8/O3Execution/scoreboard.hh"
 #include "cpu/power8/thread_state.hh"
 #include "cpu/activity.hh"
 #include "cpu/base.hh"
@@ -479,8 +494,15 @@ class CPU : public BaseCPU
     bool removeInstsThisCycle;
 
   protected:
+
+    /** Pipeline stages. */
+    //IF0 if0;
+
+    //IF1 if1;
     /** The fetch stage. */
     Fetch fetch;
+
+    EarlyDecode earlyDecode;
 
     /** The decode stage. */
     Decode decode;
@@ -545,8 +567,24 @@ class CPU : public BaseCPU
     /** The main time buffer to do backwards communication. */
     TimeBuffer<TimeStruct> timeBuffer;
 
+    /** Pipeline regs(queue) */
+    // TimeBuffer<IF0Struct> if0Queue;
+    // TimeBuffer<IF1Struct> if1Queue;
+    // TimeBuffer<IF2Struct> if2Queue;
+    // TimeBuffer<IF3Struct> if3Queue;
+    // TimeBuffer<IF4Struct> if4Queue;
+
+    // TimeBuffer<ID1Struct> id1Queue;
+    // TimeBuffer<ID2Struct> id2Queue;
+    // TimeBuffer<ID3Struct> id3Queue;
+    // TimeBuffer<ID4Struct> id4Queue;
+    // TimeBuffer<ID5Struct> id5Queue;
+
     /** The fetch stage's instruction queue. */
     TimeBuffer<FetchStruct> fetchQueue;
+
+    /** The fetch stage's early decode queue. */
+    TimeBuffer<EarlyDecodeStruct> earlyDecodeQueue;
 
     /** The decode stage's instruction queue. */
     TimeBuffer<DecodeStruct> decodeQueue;

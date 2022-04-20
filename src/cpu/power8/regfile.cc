@@ -39,11 +39,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpu/power8/regfile.hh"
+#include "regfile.hh"
 
-#include "cpu/power8/free_list.hh"
+#include "cpu/power8/ISU/free_list.hh"
 #include "arch/generic/types.hh"
-#include "cpu/power8/free_list.hh"
 
 namespace gem5
 {

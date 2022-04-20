@@ -1,5 +1,5 @@
-# Copyright (c) 2010, 2017-2018 ARM Limited
-# All rights reserved.
+# Copyright (c) 2017 ARM Limited
+# All rights reserved
 #
 # The license below extends only to copyright in the software and shall
 # not be construed as granting a license to any other intellectual
@@ -38,40 +38,15 @@
 
 from m5.SimObject import SimObject
 from m5.params import *
+from m5.objects.FuncUnit import *
+from m5.objects.POWER8FuncUnitConfig import *
 
-class OpClass(Enum):
-    vals = ['No_OpClass', 'IntAlu', 'IntMult', 'IntDiv', 'FloatAdd',
-            'FloatCmp', 'FloatCvt', 'FloatMult', 'FloatMultAcc', 'FloatDiv',
-            'FloatMisc', 'FloatSqrt',
-            'SimdAdd', 'SimdAddAcc', 'SimdAlu', 'SimdCmp', 'SimdCvt',
-            'SimdMisc', 'SimdMult', 'SimdMultAcc', 'SimdShift', 'SimdShiftAcc',
-            'SimdDiv', 'SimdSqrt', 'SimdFloatAdd', 'SimdFloatAlu',
-            'SimdFloatCmp', 'SimdFloatCvt', 'SimdFloatDiv', 'SimdFloatMisc',
-            'SimdFloatMult', 'SimdFloatMultAcc', 'SimdFloatSqrt',
-            'SimdReduceAdd', 'SimdReduceAlu', 'SimdReduceCmp',
-            'SimdFloatReduceAdd', 'SimdFloatReduceCmp',
-            'SimdAes', 'SimdAesMix', 'SimdSha1Hash', 'SimdSha1Hash2',
-            'SimdSha256Hash', 'SimdSha256Hash2', 'SimdShaSigma2',
-            'SimdShaSigma3',
-            'SimdPredAlu',
-            'VSXAdd',
-            'MemRead', 'MemWrite', 'FloatMemRead', 'FloatMemWrite',
-            'IprAccess', 'InstPrefetch']
+class POWER8FUPool(SimObject):
+    type = 'POWER8FUPool'
+    cxx_class = 'gem5::power8::FUPool'
+    cxx_header = "cpu/power8/O3Execution/fu_pool.hh"
+    FUList = VectorParam.FUDesc("list of FU's for this pool")
 
-class OpDesc(SimObject):
-    type = 'OpDesc'
-    cxx_header = "cpu/func_unit.hh"
-    cxx_class = 'gem5::OpDesc'
-
-    opClass = Param.OpClass("type of operation")
-    opLat = Param.Cycles(1, "cycles until result is available")
-    pipelined = Param.Bool(True, "set to true when the functional unit for"
-        "this op is fully pipelined. False means not pipelined at all.")
-
-class FUDesc(SimObject):
-    type = 'FUDesc'
-    cxx_header = "cpu/func_unit.hh"
-    cxx_class = 'gem5::FUDesc'
-
-    count = Param.Int("number of these FU's available")
-    opList = VectorParam.OpDesc("operation classes for this FU type")
+class DefaultPOWER8FUPool(POWER8FUPool):
+    FUList = [ IntALU(), IntMultDiv(), FP_ALU(), FP_MultDiv(), ReadPort(),
+               SIMD_Unit(), PredALU(), WritePort(), RdWrPort(), IprPort() ]

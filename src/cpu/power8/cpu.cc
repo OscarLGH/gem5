@@ -82,6 +82,7 @@ CPU::CPU(const POWER8CPUParams &params)
 #endif
       removeInstsThisCycle(false),
       fetch(this, params),
+      earlyDecode(this, params),
       decode(this, params),
       rename(this, params),
       iew(this, params),
@@ -109,6 +110,7 @@ CPU::CPU(const POWER8CPUParams &params)
 
       timeBuffer(params.backComSize, params.forwardComSize),
       fetchQueue(params.backComSize, params.forwardComSize),
+      earlyDecodeQueue(params.backComSize, params.forwardComSize),
       decodeQueue(params.backComSize, params.forwardComSize),
       renameQueue(params.backComSize, params.forwardComSize),
       iewQueue(params.backComSize, params.forwardComSize),
@@ -154,6 +156,7 @@ CPU::CPU(const POWER8CPUParams &params)
 
     // Set up Pointers to the activeThreads list for each stage
     fetch.setActiveThreads(&activeThreads);
+    earlyDecode.setActiveThreads(&activeThreads);
     decode.setActiveThreads(&activeThreads);
     rename.setActiveThreads(&activeThreads);
     iew.setActiveThreads(&activeThreads);
@@ -161,6 +164,7 @@ CPU::CPU(const POWER8CPUParams &params)
 
     // Give each of the stages the time buffer they will use.
     fetch.setTimeBuffer(&timeBuffer);
+    earlyDecode.setTimeBuffer(&timeBuffer);
     decode.setTimeBuffer(&timeBuffer);
     rename.setTimeBuffer(&timeBuffer);
     iew.setTimeBuffer(&timeBuffer);
@@ -168,7 +172,10 @@ CPU::CPU(const POWER8CPUParams &params)
 
     // Also setup each of the stages' queues.
     fetch.setFetchQueue(&fetchQueue);
-    decode.setFetchQueue(&fetchQueue);
+    earlyDecode.setFetchQueue(&fetchQueue);
+    earlyDecode.setEarlyDecodeQueue(&earlyDecodeQueue);
+    //decode.setFetchQueue(&fetchQueue);
+    decode.setEarlyDecodeQueue(&earlyDecodeQueue);
     commit.setFetchQueue(&fetchQueue);
     decode.setDecodeQueue(&decodeQueue);
     rename.setDecodeQueue(&decodeQueue);
@@ -513,6 +520,8 @@ CPU::tick()
     //Tick each of the stages
     fetch.tick();
 
+    earlyDecode.tick();
+
     decode.tick();
 
     rename.tick();
@@ -525,6 +534,7 @@ CPU::tick()
     timeBuffer.advance();
 
     fetchQueue.advance();
+    earlyDecodeQueue.advance();
     decodeQueue.advance();
     renameQueue.advance();
     iewQueue.advance();
@@ -582,6 +592,7 @@ CPU::startup()
     BaseCPU::startup();
 
     fetch.startupStage();
+    earlyDecode.startupStage();
     decode.startupStage();
     iew.startupStage();
     rename.startupStage();
@@ -799,6 +810,7 @@ CPU::removeThread(ThreadID tid)
     // since this thread is going to be completely removed from the CPU
     commit.clearStates(tid);
     fetch.clearStates(tid);
+    earlyDecode.startupStage();
     decode.clearStates(tid);
     rename.clearStates(tid);
     iew.clearStates(tid);
@@ -807,6 +819,7 @@ CPU::removeThread(ThreadID tid)
     for (int i = 0; i < timeBuffer.getSize(); ++i) {
         timeBuffer.advance();
         fetchQueue.advance();
+        earlyDecodeQueue.advance();
         decodeQueue.advance();
         renameQueue.advance();
         iewQueue.advance();
@@ -969,6 +982,7 @@ CPU::drain()
         for (int i = 0; i < timeBuffer.getSize(); ++i) {
             timeBuffer.advance();
             fetchQueue.advance();
+            earlyDecodeQueue.advance();
             decodeQueue.advance();
             renameQueue.advance();
             iewQueue.advance();
@@ -999,6 +1013,7 @@ CPU::drainSanityCheck() const
 {
     assert(isCpuDrained());
     fetch.drainSanityCheck();
+    earlyDecode.drainSanityCheck();
     decode.drainSanityCheck();
     rename.drainSanityCheck();
     iew.drainSanityCheck();
@@ -1016,6 +1031,11 @@ CPU::isCpuDrained() const
     }
 
     if (!fetch.isDrained()) {
+        DPRINTF(Drain, "Fetch not drained.\n");
+        drained = false;
+    }
+
+    if (!earlyDecode.isDrained()) {
         DPRINTF(Drain, "Fetch not drained.\n");
         drained = false;
     }
@@ -1094,6 +1114,7 @@ CPU::takeOverFrom(BaseCPU *oldCPU)
     BaseCPU::takeOverFrom(oldCPU);
 
     fetch.takeOverFrom();
+    earlyDecode.takeOverFrom();
     decode.takeOverFrom();
     rename.takeOverFrom();
     iew.takeOverFrom();
