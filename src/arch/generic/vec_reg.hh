@@ -347,7 +347,7 @@ struct ParseParam<VecRegContainer<Sz>>
 
         for (int i = 0; i < Sz; i++) {
             uint8_t b = 0;
-            if (2 * i < value.size())
+            if (i < value.size())
                 b = stoul(str.substr(i * 2, 2), nullptr, 16);
             value.template as<uint8_t>()[i] = b;
         }

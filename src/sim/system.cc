@@ -460,6 +460,8 @@ System::unserialize(CheckpointIn &cp)
     UNSERIALIZE_CONTAINER(ptrs);
     UNSERIALIZE_CONTAINER(limits);
 
+    memPools.clear();
+
     assert(ptrs.size() == limits.size());
     for (size_t i = 0; i < ptrs.size(); i++)
         memPools.emplace_back(this, ptrs[i], limits[i]);
