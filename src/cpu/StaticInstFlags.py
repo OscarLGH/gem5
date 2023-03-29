@@ -82,6 +82,7 @@ class StaticInstFlags(Enum):
 
         'IsSyscall',        # Causes a system call to be emulated in syscall
                             # emulation mode.
+        'IsPrivileged',     # Is flag to check instruction is privileged or not
 
         # Flags for microcode
         'IsMacroop',        # Is a macroop containing microops

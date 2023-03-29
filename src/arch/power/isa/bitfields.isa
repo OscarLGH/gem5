@@ -157,3 +157,9 @@ def bitfield SHW           <9:8>;
 
 def bitfield ST             <15>;
 def bitfield SIX            <14:11>;
+
+// BHRB Field
+def bitfield BHRB          <20:11>;
+
+//L field for mtmsr and SLB move from entry VSID,ESID instructions.
+def bitfield L             <16>;

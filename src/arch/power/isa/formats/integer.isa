@@ -116,11 +116,21 @@ setOVCode = '''
     }
 '''
 
+def GetPriCode(code):
+    cond_code =  'if (bits(MSR,14)==1) {\n'
+    cond_code += 'fault=std::make_shared<ProgramPriInterrupt>();\n'
+    cond_code += '} else {\n'
+    cond_code += code + '\n'
+    cond_code += '}\n'
+    return cond_code
+
 }};
 
 
 // A basic integer instruction.
 def format IntOp(code, inst_flags = []) {{
+    if 'IsPrivileged' in inst_flags:
+        code = GetPriCode(code)
     (header_output, decoder_output, decode_block, exec_output) = \
         GenAluOp(name, Name, 'IntOp', code, inst_flags, BasicDecode,
                  BasicConstructor)

@@ -184,6 +184,40 @@ decode PO default Unknown::unknown() {
 
         150: MiscOp::isync({{ }}, [ IsSerializeAfter ]);
 
+        18:  MiscOp::rfid({{
+            uint32_t msr12=(bits(MSR,60)&bits(SRR1,12))
+                            |((bits(MSR,60)^0x01)&bits(MSR,12));
+            MSR = insertBits(MSR,12,msr12);
+            uint32_t msr60=bits(MSR,60)&bits(SRR1,60);
+            MSR = insertBits(MSR,60,msr60);
+            if((bits(MSR,34,32)!=0x02)|(bits(SRR1,34,32)!=0x00))
+                MSR = insertBits(MSR,34,32,bits(SRR1,34,32));
+            MSR = insertBits(MSR,15,(bits(SRR1,15)|bits(SRR1,14)));
+            MSR = insertBits(MSR,5,(bits(SRR1,5)|bits(SRR1,14)));
+            MSR = insertBits(MSR,4,(bits(SRR1,4)|bits(SRR1,14)));
+            MSR = insertBits(MSR,63,61,bits(SRR1,63,61));
+            MSR = insertBits(MSR,59,35,bits(SRR1,59,35));
+            MSR = insertBits(MSR,31,bits(SRR1,31));
+            MSR = insertBits(MSR,26,22,bits(SRR1,26,22));
+            MSR = insertBits(MSR,14,13,bits(SRR1,14,13));
+            MSR = insertBits(MSR,11,6,bits(SRR1,11,6));
+            MSR = insertBits(MSR,3,0,bits(SRR1,3,0));
+            NIA = SRR0 & -4ULL;
+        }}, [ IsPrivileged ]);
+        274:  MiscOp::hrfid({{
+            if((bits(MSR,34,32)!=0x02)|(bits(HSRR1,34,32)!=0x00))
+                MSR = insertBits(MSR,34,32,bits(HSRR1,34,32));
+            MSR = insertBits(MSR,15,(bits(HSRR1,15)|bits(HSRR1,14)));
+            MSR = insertBits(MSR,5,(bits(HSRR1,5)|bits(HSRR1,14)));
+            MSR = insertBits(MSR,4,(bits(HSRR1,4)|bits(HSRR1,14)));
+            MSR = insertBits(MSR,63,35,bits(HSRR1,63,35));
+            MSR = insertBits(MSR,31,bits(HSRR1,31));
+            MSR = insertBits(MSR,26,22,bits(HSRR1,26,22));
+            MSR = insertBits(MSR,14,6,bits(HSRR1,14,6));
+            MSR = insertBits(MSR,3,0,bits(HSRR1,3,0));
+            NIA = HSRR0 & -4ULL;
+        }});
+
         format CondLogicOp {
             193: crxor({{
                 uint32_t crBa = bits(CR, 31 - ba);
@@ -1079,22 +1113,6 @@ decode PO default Unknown::unknown() {
                             }});
                         }
 
-                        339: decode SPR {
-                            0x20: mfxer({{ Rt = XER; }});
-                            0x100: mflr({{ Rt = LR; }});
-                            0x120: mfctr({{ Rt = CTR; }});
-                            0x1f9: mftar({{ Rt = TAR; }});
-                            0x188: mftb({{ Rt = curTick(); }});
-                            0x1a8: mftbu({{ Rt_uw = curTick() >> 32; }});
-                        }
-
-                        467: decode SPR {
-                            0x20: mtxer({{ XER = Rs; }});
-                            0x100: mtlr({{ LR = Rs; }});
-                            0x120: mtctr({{ CTR = Rs; }});
-                            0x1f9: mttar({{ TAR = Rs; }});
-                        }
-
                         512: mcrxr({{
                             CR = insertCRField(CR, BF, XER<31:28>);
                             XER = XER<27:0>;
@@ -1115,6 +1133,205 @@ decode PO default Unknown::unknown() {
         ##include "vsx/storage_access/vsx_store.isa"
 
         ##include "vsx/move/vsx_regmove.isa"
+
+        // Generic integer format instructions.
+        format IntOp {
+            339: decode SPR {
+                0x004: mftfhar({{ Rt = TFHAR; }});
+                0x008: mfvrsave({{ Rt = VRSAVE; }});
+                0x018: mfsier({{Rt = SIER;}});
+                0x019: mfbescrs({{Rt = BESCRS;}});
+                0x01C: mfppr({{ Rt = PPR; }});
+                0x020: mfxer({{ Rt = XER; }});
+                0x024: mftfiar({{ Rt = TFIAR; }});
+                0x039: mfbescrsu({{Rt = BESCRSU;}});
+                0x044: mftexasr({{ Rt = TEXASR; }});
+                0x05C: mfppr2({{ Rt =PPR32; }});
+                0x078: mfupmc1({{Rt = PMC1;}});
+                0x098: mfupmc2({{Rt = PMC2;}});
+                0x099: mfebbhr({{Rt = EBBHR;}});
+                0x0b8: mfupmc3({{Rt = PMC3;}});
+                0x0b9: mfebbrr({{Rt = EBBRR;}});
+                0x0d8: mfupmc4({{Rt = PMC4;}});
+                0x0d9: mfbescr({{Rt = BESCR;}});
+                0x0f8: mfupmc5({{Rt = PMC5;}});
+                0x100: mflr({{ Rt = LR; }});
+                0x104: mfctrl({{ Rt = CTRL; }});
+                0x118: mfupmc6r({{Rt = PMC6;}});
+                0x120: mfctr({{ Rt = CTR; }});
+                0x188: mftb({{ Rt = TB; }});
+                0x1A8: mftbu({{ Rt = TBU; }});
+                0x1b8: mfsdar({{Rt = SDAR;}});
+                0x1f9: mftar({{Rt = TAR;}});
+                0x204: mftidr({{ Rt = TIDR; }}, [ IsPrivileged ]);
+                0x205: mfdpdes({{ Rt = DPDES; }}, [ IsPrivileged ]);
+                0x208: mfsprg0({{Rt = SPRG0;}});
+                0x209: mfhsprg0({{Rt = HSPRG0;}});
+                0x20a: mfhmer({{Rt = HMER;}});
+                0x20E: mfptcr({{ Rt = PTCR; }});
+                0x219: mfasdr({{Rt = ASDR;}});
+                0x21a: mfic({{Rt = IC;}}, [ IsPrivileged ]);
+                0x21f: mfhir0({{Rt = HIR0;}});
+                0x220: mfdscr({{ Rt = DSCR; }});
+                0x228: mfsprg1({{Rt = SPRG1;}});
+                0x229: mfhsprg1({{Rt = HSPRG1;}});
+                0x22a: mfhmeer({{Rt = HMEER;}});
+                0x23a: mfvtb({{Rt = VTB;}}, [ IsPrivileged ]);
+                0x240: mfdsisr({{ Rt = DSISR; }});
+                0x248: mfsprg2({{Rt = SPRG2;}});
+                0x249: mfhdisr({{Rt = HDSISR;}});
+                0x24a: mfpcr({{Rt = PCR;}});
+                0x260: mfdar({{ Rt = DAR; }});
+                0x268: mfsprg3({{Rt = SPRG3;}});
+                0x269: mfhdar({{Rt = HDAR;}});
+                0x285: mfdawr0({{ Rt = DAWR0; }});
+                0x289: mfspurr({{Rt = SPURR;}}, [ IsPrivileged ]);
+                0x2a9: mfpurr({{Rt = PURR;}}, [ IsPrivileged ]);
+                0x2C0: mfdec({{ Rt = DEC; }});
+                0x2c9: mfhdec({{Rt = HDEC;}});
+                0x2fa: mfpsscr({{Rt = PSSCR;}});
+                0x324: mffscr({{Rt = FSCR;}});
+                0x329: mfhrmor({{Rt = HRMOR;}});
+                0x340: mfsrr0({{ Rt = SRR0; }});
+                0x345: mfrpr({{ Rt = RPR; }});
+                0x349: mfhssr0({{Rt = HSRR0;}});
+                0x360: mfsrr1({{ Rt = SRR1; }});
+                0x365: mfciabr({{ Rt = CIABR; }});
+                0x368: mfcir({{Rt = CIR;}}, [ IsPrivileged ]);
+                0x369: mfhssr1({{Rt = HSRR1;}});
+                0x380: mfcfar({{ Rt = CFAR; }});
+                0x3a0: mfamr({{ Rt = AMR; }}, [ IsPrivileged ]);
+                0x3a1: mfiamr({{Rt = IAMR;}});
+                0x3a4: mfuamor({{ Rt = UAMOR; }}, [ IsPrivileged ]);
+                0x3aa: mfamor({{Rt = AMOR;}});
+                0x3a9: mfspr({{ }});
+                0x3c5: mfhfscr({{Rt = HFSCR;}});
+                0x3c9: mflpcr({{Rt = LPCR;}});
+                0x3E8: mfpvr({{ Rt = PVR; }});
+                0x3e9: mflpidr({{Rt = LPIDR;}});
+                0x3ff: mfpir({{ Rt = PIR;}}, [ IsPrivileged ]);
+            }
+            467: decode SPR {
+                0x004: mttfhar({{TFHAR = Rs;}});
+                0x008: mtvrsave({{ VRSAVE = Rs; }});
+                0x019: mtbescrs({{BESCRS = Rs;}});
+                0x01C: mtppr({{ PPR = Rs; }});
+                0x020: mtxer({{ XER = Rs; }});
+                0x024: mttfiar({{TFIAR = Rs;}});
+                0x039: mtbescrsu({{BESCRSU = Rs;}});
+                0x044: mttexasr({{TEXASR = Rs;}});
+                0x05C: mtppr32({{ PPR32 = Rs; }});
+                0x078: mtupmc1({{PMC1 = Rs;}});
+                0x098: mtupmc2({{PMC2 = Rs;}});
+                0x099: mtebbhr({{EBBHR = Rs;}});
+                0x0b8: mtupmc3({{PMC3 = Rs;}});
+                0x0b9: mtebbrr({{EBBRR = Rs;}});
+                0x0d8: mtupmc4({{PMC4 = Rs;}});
+                0x0d9: mtbescr({{BESCR = Rs;}});
+                0x0f8: mtupmc5({{PMC5 = Rs;}});
+                0x100: mtlr({{ LR = Rs; }});
+                0x118: mtupmc6({{PMC6 = Rs;}});
+                0x120: mtctr({{ CTR = Rs; }});
+                0x1A8: mttbu({{ TBU = Rs; }});
+                0x1f9: mttar({{TAR = Rs;}});
+                0x201: mtpidr({{PIDR = Rs;}});
+                0x204: mttidr({{TIDR = Rs;}}, [ IsPrivileged ]);
+                0x205: mtdpdes({{DPDES = Rs;}});
+                0x208: mtsprg0({{SPRG0 = Rs;}});
+                0x209: mthsprg0({{HSPRG0 = Rs;}});
+                0x20a: mthmer({{HMER = Rs;}});
+                0x20E: mtptcr({{ PTCR = Rs; }});
+                0x219: mtasdr({{ASDR = Rs;}});
+                0x21a: mtic({{IC = Rs;}});
+                0x21f: mthir0({{HIR0 = Rs;}});
+                0x220: mtdscr({{ DSCR = Rs; }});
+                0x228: mtsprg1({{SPRG1 = Rs;}});
+                0x229: mthsprg1({{HSPRG1 = Rs;}});
+                0x22a: mthmeer({{HMEER = Rs;}});
+                0x238: mtmmcr2({{MMCR2 = Rs;}});
+                0x23a: mtvtb({{VTB = Rs;}});
+                0x240: mtdsisr({{ DSISR = Rs; }});
+                0x248: mtsprg2({{SPRG2 = Rs;}});
+                0x249: mthdisr({{HDSISR = Rs;}});
+                0x24a: mtpcr({{PCR = Rs;}});
+                0x258: mtmmcra({{MMCRA = Rs;}});
+                0x260: mtdar({{ DAR = Rs; }});
+                0x268: mtsprg3({{SPRG3 = Rs;}});
+                0x269: mthdar({{HDAR = Rs;}});
+                0x27a: mtmmcrc({{MMCRC = Rs;}});
+                0x285: mtdawr0({{DAWR0 = Rs;}});
+                0x289: mtspurr({{SPURR = Rs;}});
+                0x2a9: mtpurr({{PURR = Rs;}});
+                0x2C0: mtdec({{ DEC = Rs; }});
+                0x2c9: mthdec({{HDEC = Rs;}});
+                0x2fa: mtpsscr({{PSSCR = Rs;}});
+                0x304: mtctrl({{ CTRL = Rs; }});
+                0x324: mtfscr({{FSCR = Rs;}});
+                0x329: mthrmor({{HRMOR = Rs;}});
+                0x340: mtsrr0({{ SRR0 = Rs; }});
+                0x345: mtrpr({{RPR = Rs;}});
+                0x349: mthssr0({{HSRR0 = Rs;}});
+                0x360: mtsrr1({{ SRR1 = Rs; }});
+                0x365: mtciabr({{CIABR = Rs;}});
+                0x369: mthssr1({{HSRR1 = Rs;}});
+                0x378: mtmmcr0({{MMCR0 = Rs;}});
+                0x380: mtcfar({{ CFAR = Rs; }});
+                0x390: mttbl({{ TBL = Rs; }});
+                0x33c: mtspr({{ }});
+                0x3a0: mtamr({{AMR = Rs;}}, [ IsPrivileged ]);
+                0x3a1: mtiamr({{IAMR = Rs;}});
+                0x3a4: mtuamor({{UAMOR = Rs;}}, [ IsPrivileged ]);
+                0x3aa: mtamor({{AMOR = Rs;}});
+                0x3c5: mthfscr({{HFSCR = Rs;}});
+                0x3c8: mttbu40({{TBU40 = Rs;}});
+                0x3c9: mtlpcr({{LPCR = Rs;}});
+                0x3d8: mtmmcr1({{MMCR1 = Rs;}});
+                0x3e9: mtlpidr({{LPIDR = Rs;}});
+            }
+
+            83: mfmsr({{ Rt = MSR; }}, [ IsPrivileged ]);
+
+            178: mtmsrd({{
+                if (L == 0 ) {
+                    uint64_t val = bits(Rs, 34, 32);
+
+                     if(bits(MSR, 34, 32) != 0x2 || val != 0x0) {
+                      MSR =  insertBits(MSR, 34, 32, val);
+                    }
+
+                    val = bits(Rs, 14);
+
+                    MSR = insertBits(MSR,  5,  bits(Rs, 5) | val);
+                    MSR = insertBits(MSR,  4,  bits(Rs, 4) | val);
+
+                    MSR = insertBits(MSR, 63, 61, bits(Rs, 63, 61));
+                    MSR = insertBits(MSR, 59, 35, bits(Rs, 59, 35));
+                    MSR = insertBits(MSR, 31, 16, bits(Rs, 31, 16));
+                    MSR = insertBits(MSR, 14, 13, bits(Rs, 14, 13));
+                    MSR = insertBits(MSR, 11,  6, bits(Rs, 11,  6));
+                    MSR = insertBits(MSR,  3,  1, bits(Rs,  3,  1));
+                } else {
+                    MSR = insertBits(MSR, 15, bits(Rs, 15));
+                    MSR = insertBits(MSR,  1, bits(Rs,  1));
+                }
+            }}, [ IsPrivileged ]);
+
+            146: mtmsr({{
+                 if( L ==0 ){
+                     MSR = insertBits(MSR,15,bits(Rs,15)|bits(Rs,14));
+                     MSR = insertBits(MSR,5,bits(Rs,5)|bits(Rs,14));
+                     MSR = insertBits(MSR,4,bits(Rs,4)|bits(Rs,14));
+                     MSR = insertBits(MSR,31,16,bits(Rs,31,16));
+                     MSR = insertBits(MSR,14,13,bits(Rs,14,13));
+                     MSR = insertBits(MSR,11,6,bits(Rs,11,6));
+                     MSR = insertBits(MSR,3,1,bits(Rs,3,1));
+                 }
+                 else{
+                     MSR = insertBits(MSR,15,bits(Rs,15));
+                     MSR = insertBits(MSR,1,bits(Rs,1));
+                 }
+            }}, [ IsPrivileged ]);
+        }
     }
 
     32: LoadDispOp::lwz({{ Rt = Mem_uw; }});

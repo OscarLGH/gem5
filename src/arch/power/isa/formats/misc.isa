@@ -50,6 +50,8 @@ def template MiscOpExecute {{
 }};
 
 def format MiscOp(code, opt_flags = []) {{
+    if 'IsPrivileged' in opt_flags:
+        code = GetPriCode(code)
     iop = InstObjParams(name, Name, 'IntOp',
                         {"code": code},
                         opt_flags)

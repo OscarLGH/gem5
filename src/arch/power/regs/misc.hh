@@ -122,6 +122,27 @@ BitUnion64(Msr)
     Bitfield<0> le;
 EndBitUnion(Msr)
 
+BitUnion64(Lpcr)
+    Bitfield<63,60> vc;
+    Bitfield<54,52> dpfd;
+    Bitfield<25> ile;
+    Bitfield<24,23> ail;
+    Bitfield<22> uprt;
+    Bitfield<21> evirt;
+    Bitfield<20> hr;
+    Bitfield<18> onl;
+    Bitfield<17> ld;
+    Bitfield<16,12> pece;
+    Bitfield<11> mer;
+    Bitfield<10> gtse;
+    Bitfield<9> tc;
+    Bitfield<4> heic;
+    Bitfield<3> lpes;
+    Bitfield<1> hvice;
+    Bitfield<0> hdice;
+EndBitUnion(Lpcr)
+
+
 } // namespace PowerISA
 } // namespace gem5
 
