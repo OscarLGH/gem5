@@ -240,13 +240,58 @@ Fault
 TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                      BaseMMU::Mode mode)
 {
-    panic_if(FullSystem,
-            "translateAtomic not yet implemented for full system.");
+    Addr paddr;
+    Addr vaddr = req->getVaddr();
+    DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+    vaddr &= 0x0fffffffffffffff;
+    if (FullSystem) {
+        Msr msr = tc->readIntReg(INTREG_MSR);
+        if (mode == BaseMMU::Execute) {
+            if (msr.ir){
+                //printf("MSR: %lx\n",(uint64_t)msr);
+                //Fault fault = rwalk->start(tc,req, mode);
+                Fault fault = NoFault;
+                paddr = req->getPaddr();
 
-    if (mode == BaseMMU::Execute)
-        return translateInst(req, tc);
-    else
-        return translateData(req, tc, mode == BaseMMU::Write);
+                //trySnoopKernConsole(paddr, tc);
+                //trySnoopOpalConsole(paddr, tc);
+
+                return fault;
+            }
+            else{
+                DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+                paddr = vaddr;
+                DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                req->setPaddr(paddr);
+
+                //trySnoopKernConsole(paddr, tc);
+                //trySnoopOpalConsole(paddr, tc);
+
+                return NoFault;
+
+            }
+        }
+        else{
+            if (msr.dr){
+                //Fault fault = rwalk->start(tc,req, mode);
+                Fault fault = NoFault;
+                paddr = req->getPaddr();
+                return fault;
+            }
+            else{
+                DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+                paddr = vaddr;
+                DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                req->setPaddr(paddr);
+                return NoFault;
+            }
+        }
+    } else {
+        if (mode == BaseMMU::Execute)
+            return translateInst(req, tc);
+        else
+            return translateData(req, tc, mode == BaseMMU::Write);
+    }
 }
 
 Fault
