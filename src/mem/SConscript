@@ -71,6 +71,11 @@ if env['HAVE_DRAMSIM']:
     Source('dramsim2_wrapper.cc')
     Source('dramsim2.cc')
 
+if env['HAVE_RAMULATOR']:
+ SimObject("Ramulator.py")
+ Source('ramulator.cc')
+ DebugFlag("Ramulator")
+
 DebugFlag('BaseBus')
 DebugFlag('BusAddrRanges')
 DebugFlag('CoherentBus')

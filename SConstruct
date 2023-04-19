@@ -215,6 +215,10 @@ main.Decider('MD5-timestamp')
 main.root = Dir(".")         # The current directory (where this file lives).
 main.srcdir = Dir("src")     # The source directory
 
+# RAMULATOR: forcing clang
+main['CC'] = "clang"
+main['CXX'] = "clang++"
+
 main_dict_keys = main.Dictionary().keys()
 
 # Check that we have a C/C++ compiler
@@ -541,10 +545,16 @@ if main['GCC'] or main['CLANG']:
     main.Append(CCFLAGS=['-fno-strict-aliasing'])
     # Enable -Wall and then disable the few warnings that we
     # consistently violate
-    main.Append(CCFLAGS=['-Wall', '-Wno-sign-compare', '-Wundef'])
+    # RAMULATOR: compatibiltiy for clang 3.5+, gcc 5
+    if main['GCC']:
+        main.Append(CCFLAGS=['-Wall', '-Wno-sign-compare', '-Wundef', '-Wno-unused-variable', '-Wno-parentheses', '-Wno-deprecated'])
+    else:
+        main.Append(CCFLAGS=['-Wall', '-Wno-sign-compare', '-Wundef', '-Wno-unused-private-field', '-Wno-deprecated-register', '-Wno-bool-conversion', '-Wno-unused-function'])
     # We always compile using C++11, but only gcc >= 4.7 and clang 3.1
     # actually use that name, so we stick with c++0x
-    main.Append(CXXFLAGS=['-std=c++0x'])
+    # RAMULATOR: support newer compilers by using c++11
+    # main.Append(CXXFLAGS=['-std=c++0x'])
+    main.Append(CXXFLAGS=['-std=c++11'])
     # Add selected sanity checks from -Wextra
     main.Append(CXXFLAGS=['-Wmissing-field-initializers',
                           '-Woverloaded-virtual'])
@@ -1154,6 +1164,9 @@ main.SConscript('ext/fputils/SConscript',
 main.SConscript('ext/dramsim2/SConscript',
                 variant_dir = joinpath(build_root, 'dramsim2'))
 
+# ramulator build is shared across all configs in the build root.
+main.SConscript('ext/ramulator/SConscript',
+                variant_dir = joinpath(build_root, 'ramulator'))
 ###################################################
 #
 # This function is used to set up a directory with switching headers

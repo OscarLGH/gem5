@@ -54,7 +54,8 @@ _mem_aliases_all = [
     ("lpddr2_s4_1066_x32", "LPDDR2_S4_1066_x32"),
     ("lpddr3_1600_x32", "LPDDR3_1600_x32"),
     ("wio_200_x128", "WideIO_200_x128"),
-    ("dramsim2", "DRAMSim2")
+    ("dramsim2", "DRAMSim2"),
+    ("ramulator", "Ramulator"),
     ]
 
 # Filtered list of aliases. Only aliases for existing memory
@@ -158,9 +159,14 @@ def config_mem(options, system):
             # Create an instance so we can figure out the address
             # mapping and row-buffer size
             ctrl = cls()
-
+            
+            if issubclass(cls, m5.objects.Ramulator):
+                if not options.ramulator_config:
+                    fatal("--mem-type=ramulator require --ramulator-config option")
+                ctrl.config_file = options.ramulator_config
+                ctrl.num_cpus = options.num_cpus
             # Only do this for DRAMs
-            if issubclass(cls, m5.objects.DRAMCtrl):
+            elif issubclass(cls, m5.objects.DRAMCtrl):
                 # Inform each controller how many channels to account
                 # for
                 ctrl.channels = nbr_mem_ctrls
