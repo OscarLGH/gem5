@@ -1,9 +1,14 @@
-# -*- mode:python -*-
-
-# Copyright (c) 2009 The University of Edinburgh
-# Copyright (c) 2020 LabWare
-# Copyright (c) 2021 IBM Corporation
+# Copyright (c) 2007-2008 The Hewlett-Packard Development Company
 # All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -28,42 +33,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Import('*')
+from m5.params import *
+from m5.objects.Workload import Workload
 
-if env['TARGET_ISA'] == 'power':
-# Workaround for bug in SCons version > 0.97d20071212
-# Scons bug id: 2006 M5 Bug id: 308
-    Dir('isa/formats')
-    Source('decoder.cc')
-    Source('faults.cc')
-    Source('insts/branch.cc')
-    Source('insts/mem.cc')
-    Source('insts/integer.cc')
-    Source('insts/floating.cc')
-    Source('insts/condition.cc')
-    Source('insts/static_inst.cc')
-    Source('linux/se_workload.cc')
-    Source('isa.cc')
-    Source('pagetable.cc')
-    Source('process.cc')
-    Source('remote_gdb.cc')
-    Source('se_workload.cc')
-    Source('bare_metal/fs_workload.cc')
-    Source('tlb.cc')
+class PowerBareMetal(Workload):
+    type = 'PowerBareMetal'
+    cxx_class = 'gem5::PowerISA::BareMetal'
+    cxx_header = 'arch/power/bare_metal/fs_workload.hh'
 
-    SimObject('PowerInterrupts.py')
-    SimObject('PowerISA.py')
-    SimObject('PowerMMU.py')
-    SimObject('PowerSeWorkload.py')
-    SimObject('PowerFsWorkload.py')
-    SimObject('PowerTLB.py')
-
-    DebugFlag('Power')
-
-    ISADesc('isa/main.isa')
-
-    GdbXml('power-core.xml', 'gdb_xml_power_core')
-    GdbXml('power64-core.xml', 'gdb_xml_power64_core')
-    GdbXml('power-fpu.xml', 'gdb_xml_power_fpu')
-    GdbXml('powerpc-32.xml', 'gdb_xml_powerpc_32')
-    GdbXml('powerpc-64.xml', 'gdb_xml_powerpc_64')
+    bare_metal = Param.Bool(True, "Using Bare Metal Application?")
+    bootloader = Param.String("File, that contains the bootloader code")

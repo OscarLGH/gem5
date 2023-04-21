@@ -39,12 +39,6 @@ namespace PowerISA
 // Constants Related to the number of registers
 const int NumIntArchRegs = 32;
 
-// CR, XER, LR, CTR, TAR, FPSCR, MSR, RSV, RSV-LEN, RSV-ADDR
-// and zero register, which doesn't actually exist but needs a number
-const int NumIntSpecialRegs = 13;
-
-const int NumIntRegs = NumIntArchRegs + NumIntSpecialRegs;
-
 // Semantically meaningful register indices
 const int ReturnValueReg = 3;
 const int ArgumentReg0 = 3;
@@ -151,6 +145,13 @@ enum MiscIntRegNums
     INTREG_PIR,
     INTREG_DUMMY
 };
+
+// CR, XER, LR, CTR, TAR, FPSCR, MSR, RSV, RSV-LEN, RSV-ADDR
+// and zero register, which doesn't actually exist but needs a number
+const int NumIntSpecialRegs = INTREG_DUMMY - INTREG_CR + 1;
+
+const int NumIntRegs = NumIntArchRegs + NumIntSpecialRegs;
+
 
 } // namespace PowerISA
 } // namespace gem5

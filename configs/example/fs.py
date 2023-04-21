@@ -103,6 +103,13 @@ def build_test_system(np):
         )
         if args.enable_context_switch_stats_dump:
             test_sys.enable_context_switch_stats_dump = True
+    elif buildEnv['TARGET_ISA'] == "power":
+        test_sys = makePowerSystem(
+            test_mem_mode,
+            1,
+            bm[0],
+            cmdline=cmdline
+        )
     else:
         fatal("Incapable of building %s full system!", buildEnv['TARGET_ISA'])
 
@@ -250,6 +257,10 @@ def build_drive_system(np):
     elif buildEnv['TARGET_ISA'] == 'arm':
         drive_sys = makeArmSystem(drive_mem_mode, args.machine_type, np,
                                   bm[1], args.dtb_filename, cmdline=cmdline)
+    elif buildEnv['TARGET_ISA'] == 'power':
+        drive_sys = makePowerSystem(drive_mem_mode, np,
+                                  bm[1], cmdline=cmdline)
+
 
     # Create a top-level voltage domain
     drive_sys.voltage_domain = VoltageDomain(voltage = args.sys_voltage)

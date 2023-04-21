@@ -55,6 +55,7 @@ os_types = { 'mips'  : [ 'linux' ],
                          'android-jellybean',
                          'android-kitkat',
                          'android-nougat', ],
+             'power' : [ 'linux' ]
            }
 
 class CowIdeDisk(IdeDisk):
@@ -655,6 +656,33 @@ def makeBareMetalRiscvSystem(mem_mode, mdesc=None, cmdline=None):
     self.bridge.ranges = [AddrRange(IO_address_space_base, Addr.max)]
 
     self.system_port = self.membus.slave
+    return self
+
+def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
+    self = System()
+    if not mdesc:
+        # generic system
+        mdesc = SysConfig()
+    self.mem_mode = mem_mode
+    self.mem_ranges = [AddrRange(mdesc.mem())]
+
+    self.workload = PowerBareMetal()
+
+    self.iobus = IOXBar()
+    self.membus = MemBus()
+
+    self.bridge = Bridge(delay='50ns')
+    self.mem_mode = mem_mode
+    self.mem_ranges = [AddrRange('3GB')]
+    self.bridge.master = self.iobus.slave
+    self.bridge.slave = self.membus.master
+    self.bridge.ranges = \
+        [
+        AddrRange(0xC0000000, 0xFFFF0000),
+        ]
+    self.system_port = self.membus.slave
+    #self.intrctrl = IntrControl()
+
     return self
 
 def makeDualRoot(full_system, testSystem, driveSystem, dumpfile):
