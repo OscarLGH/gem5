@@ -33,7 +33,12 @@
 #   - maintained: The component has an active maintainer.
 #   - orphaned: The component is looking for a new owner.
 
-
+docs:
+  desc: >-
+    gem5 docs
+  status: maintained
+  maintainers:
+    - shaojiemike <shaojiemike@mail.ustc.edu.cn>
 pmc:
   desc: >-
     PMC Members (general maintainers):

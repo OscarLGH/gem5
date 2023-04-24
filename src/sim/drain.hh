@@ -343,6 +343,9 @@ class Drainable
      */
     virtual void notifyFork() {};
 
+  protected:
+    void setDrainState(DrainState new_state) { _drainState = new_state; }
+
   private:
     /** DrainManager interface to request a drain operation */
     DrainState dmDrain();

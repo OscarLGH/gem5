@@ -216,6 +216,12 @@ def config_mem(options, system):
                     intf, r, i, intlv_bits, intlv_size, opt_xor_low_bit
                 )
 
+                if issubclass(intf, m5.objects.Ramulator):
+                    if not options.ramulator_config:
+                        fatal("--mem-type=ramulator require\
+                             --ramulator-config option")
+                    dram_intf.config_file = options.ramulator_config
+                    dram_intf.num_cpus = options.num_cpus
                 # Set the number of ranks based on the command-line
                 # options if it was explicitly set
                 if (

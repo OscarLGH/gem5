@@ -163,6 +163,11 @@ def addNoISAOptions(parser):
         help="Memory channels interleave",
     )
 
+    parser.add_argument("--ramulator-config", type=str,
+                        dest="ramulator_config",
+                      help="Specify Ramulator configuration file\
+                        , overrides other --mem-XXX options")
+
     parser.add_argument("--memchecker", action="store_true")
 
     # Cache Options
