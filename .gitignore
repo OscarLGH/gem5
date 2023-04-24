@@ -5,12 +5,14 @@ cscope.files
 cscope.out
 *.pyc
 *~
+*.log
 .*.swp
 .*.swo
 m5out
 /src/doxygen/html
 /ext/dramsim2/DRAMSim2
 /ext/mcpat/regression/*/*.out
+ext/ramulator/Ramulator
 /util/m5/*.o
 /util/m5/*.a
 /util/m5/m5
@@ -31,3 +33,4 @@ m5out
 configs/example/memcheck.cfg
 configs/dram/lowp_sweep.cfg
 .pyenv
+a.out
