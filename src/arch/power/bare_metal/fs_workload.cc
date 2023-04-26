@@ -54,7 +54,9 @@ BareMetal::BareMetal(const Params &p) : Workload(p),
 _isBareMetal(p.bare_metal),
 bootloader(loader::createObjectFile(p.bootloader))
 {
-
+    fatal_if(!bootloader, "Could not load bootloader file %s.", p.bootloader);
+    _resetVect = bootloader->entryPoint();
+    bootloaderSymtab = bootloader->symtab();
 }
 
 BareMetal::~BareMetal()
@@ -68,35 +70,50 @@ BareMetal::initState()
     Workload::initState();
     printf("PowerSystem::initState: No of thread contexts %d\n" ,
                     (int)system->threads.size());
+    //printf("bootloader entry point: %p\n" ,
+    //                bootloader->entryPoint());
+    ByteOrder byteOrder = bootloader->getByteOrder();
+    bool is64bit = (bootloader->getArch() == loader::Power64);
+    bool isLittleEndian = (byteOrder == ByteOrder::little);
+    for (auto *tc: system->threads) {
+        auto pc = tc->pcState();
+        pc.set(0x10);    // For skiboot
+        pc.byteOrder(byteOrder);
+        tc->pcState(pc);
+        //Sixty Four, little endian,Hypervisor bits are enabled.
+        // IR and DR bits are disabled.
+        //Msr msr = 0x9000000000000000;
+        //Set the machine status for a typical userspace
+        Msr msr = 0;
+        msr.sf = is64bit;
+        msr.hv = 1;
+        msr.ee = 0;
+        msr.pr = 0;
+        msr.me = 0;
+        msr.ir = 0;
+        msr.dr = 0;
+        msr.ri = 0;
+        msr.le = isLittleEndian;
+        tc->setIntReg(INTREG_MSR, msr);
+        tc->setIntReg(INTREG_DEC , 0xffffffffffffffff);
+        // This PVR is specific to power9
+        // Setting TB register to 0
+        tc->setIntReg(INTREG_TB , 0x0);
+        //tc->setIntReg(INTREG_PVR , 0x004e1100);
+        tc->setIntReg(INTREG_PVR , 0x004e0200);
+        tc->setIntReg(INTREG_MSR , msr);
+        //ArgumentReg0 is initialized with 0xc00000 because in linux/system.cc
+        //dtb is loaded at 0xc00000
+        tc->setIntReg(ArgumentReg0, 0x1800000);
+        tc->activate();
+    }
 
-    ThreadContext *tc = system->threads[0];
-    //tc->pcState(tc->getSystemPtr()->kernelEntry);
-    tc->pcState(0x10); // For skiboot
-    //Sixty Four, little endian,Hypervisor bits are enabled.
-    // IR and DR bits are disabled.
-    Msr msr = 0x9000000000000001;
-    tc->setIntReg(INTREG_DEC , 0xffffffffffffffff);
-    // This PVR is specific to power9
-    // Setting TB register to 0
-    tc->setIntReg(INTREG_TB , 0x0);
-    //tc->setIntReg(INTREG_PVR , 0x004e1100);
-    tc->setIntReg(INTREG_PVR , 0x004e0200);
-    tc->setIntReg(INTREG_MSR , msr);
-    //ArgumentReg0 is initialized with 0xc00000 because in linux/system.cc
-    //dtb is loaded at 0xc00000
-    tc->setIntReg(ArgumentReg0, 0x1800000);
+    warn_if(!bootloader->buildImage().write(system->physProxy),
+            "Could not load sections to memory.");
 
-    /*
-    ThreadID tid = 1;
-    ThreadContext *tc1 = system->threads[1];
-    tc1->pcState(0x10);
-    tc1->setIntReg(INTREG_PVR , 0x004e0200);
-    tc1->setIntReg(INTREG_MSR , msr);
-    tc1->setIntReg(ArgumentReg0, 0x1800000);
-    //tc1->pcState(0xc00000000000a840);
-    //tc1->setIntReg(ArgumentReg0, 0x1);
-    tc1->setIntReg(INTREG_PIR,0x1);
-    */
+    for (auto *tc: system->threads) {
+        tc->activate();
+    }
 }
 
 } // namespace PowerISA

@@ -43,3 +43,4 @@ class PowerBareMetal(Workload):
 
     bare_metal = Param.Bool(True, "Using Bare Metal Application?")
     bootloader = Param.String("File, that contains the bootloader code")
+    reset_vect = Param.Addr(0x0, 'Reset vector')

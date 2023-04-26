@@ -69,14 +69,16 @@ class Interrupts : public BaseInterrupts
     bool
     checkInterrupts() const
     {
-        panic("Interrupts::checkInterrupts not implemented.\n");
+        //panic("Interrupts::checkInterrupts not implemented.\n");
+        return false;
     }
 
     Fault
     getInterrupt()
     {
-        assert(checkInterrupts());
-        panic("Interrupts::getInterrupt not implemented.\n");
+        //assert(checkInterrupts());
+        //panic("Interrupts::getInterrupt not implemented.\n");
+        return NoFault;
     }
 
     void
