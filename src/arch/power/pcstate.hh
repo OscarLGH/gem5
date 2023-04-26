@@ -61,6 +61,12 @@ class PCState : public GenericISA::SimplePCState<4>
         set(val);
     }
 
+    PCState(Addr val, ByteOrder order)
+    {
+        set(val);
+        guestByteOrder = order;
+    }
+
     ByteOrder
     byteOrder() const
     {

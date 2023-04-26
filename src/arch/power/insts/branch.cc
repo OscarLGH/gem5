@@ -59,7 +59,7 @@ PCDependentDisassembly::disassemble(
 PowerISA::PCState
 BranchOp::branchTarget(ThreadContext *tc) const
 {
-    Msr msr = tc->readIntReg(INTREG_MSR);
+    Msr msr = tc->readCCReg(INTREG_MSR);
     Addr addr;
 
     if (aa)
@@ -67,7 +67,8 @@ BranchOp::branchTarget(ThreadContext *tc) const
     else
         addr = tc->pcState().pc() + li;
 
-    return msr.sf ? addr : addr & UINT32_MAX;
+    addr =  msr.sf ? addr : addr & UINT32_MAX;
+    return PCState(addr, msr.le ? ByteOrder::little : ByteOrder::big);
 }
 
 PowerISA::PCState
@@ -80,7 +81,7 @@ BranchOp::branchTarget(const PowerISA::PCState &branchPC) const
     else
         addr = branchPC.pc() + li;
 
-    return addr;
+    return PCState(addr, branchPC.byteOrder());
 }
 
 
@@ -120,7 +121,7 @@ BranchOp::generateDisassembly(
 PowerISA::PCState
 BranchDispCondOp::branchTarget(ThreadContext *tc) const
 {
-    Msr msr = tc->readIntReg(INTREG_MSR);
+    Msr msr = tc->readCCReg(INTREG_MSR);
     Addr addr;
 
     if (aa)
@@ -128,7 +129,8 @@ BranchDispCondOp::branchTarget(ThreadContext *tc) const
     else
         addr = tc->pcState().pc() + bd;
 
-    return msr.sf ? addr : addr & UINT32_MAX;
+    addr =  msr.sf ? addr : addr & UINT32_MAX;
+    return PCState(addr, msr.le ? ByteOrder::little : ByteOrder::big);
 }
 
 PowerISA::PCState
@@ -141,7 +143,7 @@ BranchDispCondOp::branchTarget(const PowerISA::PCState &branchPC) const
     else
         addr = branchPC.pc() + bd;
 
-    return addr;
+    return PCState(addr, branchPC.byteOrder());
 }
 
 
@@ -184,9 +186,10 @@ BranchDispCondOp::generateDisassembly(
 PowerISA::PCState
 BranchRegCondOp::branchTarget(ThreadContext *tc) const
 {
-    Msr msr = tc->readIntReg(INTREG_MSR);
+    Msr msr = tc->readCCReg(INTREG_MSR);
     Addr addr = tc->readIntReg(srcRegIdx(_numSrcRegs - 1).index()) & -4ULL;
-    return msr.sf ? addr : addr & UINT32_MAX;
+    addr =  msr.sf ? addr : addr & UINT32_MAX;
+    return PCState(addr, msr.le ? ByteOrder::little : ByteOrder::big);
 }
 
 
