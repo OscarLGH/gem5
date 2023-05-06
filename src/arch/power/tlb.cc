@@ -86,7 +86,6 @@ TLB::initConsoleSnoop(void)
     std::ifstream in;
     std::string line;
 
-#if 0
     /* Find console snoop point for kernel */
     in.open("dist/m5/system/binaries/objdump_vmlinux");
     if (!in.is_open()) {
@@ -124,7 +123,7 @@ TLB::initConsoleSnoop(void)
     if (!kernConsoleSnoopAddr) {
         panic("Could not determine kernel console snooping address");
     }
-#endif
+
     /* Find console snoop point for skiboot */
     in.open("dist/m5/system/binaries/objdump_skiboot");
     if (!in.is_open()) {
@@ -384,8 +383,8 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 Fault fault = NoFault;
                 paddr = req->getPaddr();
 
-                //trySnoopKernConsole(paddr, tc);
-                //trySnoopOpalConsole(paddr, tc);
+                trySnoopKernConsole(paddr, tc);
+                trySnoopOpalConsole(paddr, tc);
 
                 return fault;
             }
@@ -395,7 +394,7 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
                 req->setPaddr(paddr);
 
-                //trySnoopKernConsole(paddr, tc);
+                trySnoopKernConsole(paddr, tc);
                 trySnoopOpalConsole(paddr, tc);
 
                 return NoFault;

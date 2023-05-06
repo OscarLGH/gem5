@@ -1,16 +1,6 @@
 /*
- * Copyright (c) 2007 The Hewlett-Packard Development Company
- * Copyright (c) 2018 TU Dresden
- * All rights reserved.
- *
- * The license below extends only to copyright in the software and shall
- * not be construed as granting a license to any other intellectual
- * property including but not limited to intellectual property relating
- * to a hardware implementation of the functionality of the software
- * licensed hereunder.  You may use the software subject to the license
- * terms below provided that you ensure that this notice is replicated
- * unmodified and in its entirety in all distributions of the software,
- * modified or unmodified, in source code or in binary form.
+ * Copyright (c) 2021 Huawei International
+ * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,13 +26,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "arch/power/bare_metal/fs_workload.hh"
+#include "arch/power/linux/fs_workload.hh"
 
-#include "arch/power/regs/int.hh"
-#include "arch/power/regs/misc.hh"
+#include "arch/power/faults.hh"
 #include "base/loader/dtb_file.hh"
 #include "base/loader/object_file.hh"
-#include "cpu/thread_context.hh"
+#include "base/loader/symtab.hh"
+#include "sim/kernel_workload.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -51,33 +41,40 @@ namespace gem5
 namespace PowerISA
 {
 
-BareMetal::BareMetal(const Params &p) : Workload(p),
-_isBareMetal(p.bare_metal),
-bootloader(loader::createObjectFile(p.bootloader)),
-kernel(loader::createObjectFile(p.kernel_filename))
-{
-    fatal_if(!bootloader, "Could not load bootloader file %s.", p.bootloader);
-    _resetVect = bootloader->entryPoint();
-    bootloaderSymtab = bootloader->symtab();
-    kernelSymtab = kernel->symtab();
-    kernel->updateBias(p.kernel_addr);
-}
-
-BareMetal::~BareMetal()
-{
-    delete bootloader;
-}
-
 void
-BareMetal::initState()
+FsLinux::initState()
 {
-    Workload::initState();
+    KernelWorkload::initState();
+
+    if (params().dtb_filename != "") {
+        inform("Loading DTB file: %s at address %#x\n", params().dtb_filename,
+                params().dtb_addr);
+
+        auto *dtb_file = new loader::DtbFile(params().dtb_filename);
+
+        if (!dtb_file->addBootCmdLine(
+                    commandLine.c_str(), commandLine.size())) {
+            warn("couldn't append bootargs to DTB file: %s\n",
+                 params().dtb_filename);
+        }
+
+        dtb_file->buildImage().offset(params().dtb_addr)
+            .write(system->physProxy);
+        delete dtb_file;
+
+        for (auto *tc: system->threads) {
+            //tc->setIntReg(11, params().dtb_addr);
+        }
+    } else {
+        warn("No DTB file specified\n");
+    }
+
     printf("PowerSystem::initState: No of thread contexts %d\n" ,
                     (int)system->threads.size());
     //printf("bootloader entry point: %p\n" ,
     //                bootloader->entryPoint());
-    ByteOrder byteOrder = bootloader->getByteOrder();
-    bool is64bit = (bootloader->getArch() == loader::Power64);
+    ByteOrder byteOrder = kernelObj->getByteOrder();
+    bool is64bit = (kernelObj->getArch() == loader::Power64);
     bool isLittleEndian = (byteOrder == ByteOrder::little);
     for (auto *tc: system->threads) {
         auto pc = tc->pcState();
@@ -109,33 +106,6 @@ BareMetal::initState()
         //ArgumentReg0 is initialized with 0xc00000 because in linux/system.cc
         //dtb is loaded at 0xc00000
         tc->setIntReg(ArgumentReg0, 0x1800000);
-        tc->activate();
-    }
-
-    warn_if(!bootloader->buildImage().write(system->physProxy),
-            "Could not load sections to memory.");
-
-    warn_if(!kernel->buildImage().write(system->physProxy),
-            "Could not load kernel sections to memory.");
-
-    if (params().dtb_filename != "") {
-        inform("Loading DTB file: %s at address %#x\n", params().dtb_filename,
-                params().dtb_addr);
-
-        auto *dtb_file = new loader::DtbFile(params().dtb_filename);
-
-        dtb_file->buildImage().offset(params().dtb_addr)
-            .write(system->physProxy);
-        delete dtb_file;
-
-        for (auto *tc: system->threads) {
-            //tc->setIntReg(11, params().dtb_addr);
-        }
-    } else {
-        warn("No DTB file specified\n");
-    }
-
-    for (auto *tc: system->threads) {
         tc->activate();
     }
 }

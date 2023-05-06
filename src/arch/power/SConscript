@@ -49,6 +49,7 @@ if env['TARGET_ISA'] == 'power':
     Source('remote_gdb.cc')
     Source('se_workload.cc')
     Source('bare_metal/fs_workload.cc')
+    Source('linux/fs_workload.cc')
     Source('pagetable_walker.cc')
     Source('tlb.cc')
 

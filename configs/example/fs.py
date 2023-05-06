@@ -133,8 +133,6 @@ def build_test_system(np):
 
     if buildEnv['TARGET_ISA'] == 'riscv':
         test_sys.workload.bootloader = args.kernel
-    elif buildEnv['TARGET_ISA'] == 'power':
-        test_sys.workload.bootloader = args.kernel
     elif args.kernel is not None:
         test_sys.workload.object_file = binary(args.kernel)
 

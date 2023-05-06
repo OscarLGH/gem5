@@ -34,7 +34,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from m5.params import *
-from m5.objects.Workload import Workload
+from m5.objects.Workload import *
 
 class PowerBareMetal(Workload):
     type = 'PowerBareMetal'
@@ -42,5 +42,29 @@ class PowerBareMetal(Workload):
     cxx_header = 'arch/power/bare_metal/fs_workload.hh'
 
     bare_metal = Param.Bool(True, "Using Bare Metal Application?")
-    bootloader = Param.String("File, that contains the bootloader code")
+    bootloader = Param.String("dist/m5/system/binaries/skiboot.elf", \
+                              "File, that contains the bootloader code")
     reset_vect = Param.Addr(0x0, 'Reset vector')
+
+    dtb_filename = Param.String("dist/m5/system/binaries/gem5-power9-fs.dtb",
+        "File that contains the Device Tree Blob. Don't use DTB if empty.")
+    dtb_addr = Param.Addr(0x1800000, "DTB address")
+    skiboot = Param.String("dist/m5/system/binaries/skiboot.elf",
+            "File that contains the OPAL firmware.");
+    kernel_filename = Param.String("dist/m5/system/binaries/vmlinux",
+            "File that contains the kernel.");
+    kernel_addr = Param.Addr(0x20000000, "kernel address")
+
+class PowerLinux(KernelWorkload):
+    type = 'PowerLinux'
+    cxx_header = 'arch/power/linux/fs_workload.hh'
+    cxx_class = 'gem5::PowerISA::FsLinux'
+    dtb_filename = Param.String("",
+        "File that contains the Device Tree Blob. Don't use DTB if empty.")
+    dtb_addr = Param.Addr(0x1800000, "DTB address")
+    skiboot = Param.String("",
+            "File that contains the OPAL firmware.");
+    initramfs = Param.String("",
+            "File that contains the initramfs image");
+    early_kernel_symbols = Param.Bool(False,
+        "enable early kernel symbol tables before MMU")

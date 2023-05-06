@@ -1,15 +1,6 @@
 /*
- * Copyright (c) 2007 The Hewlett-Packard Development Company
- * All rights reserved.
- *
- * The license below extends only to copyright in the software and shall
- * not be construed as granting a license to any other intellectual
- * property including but not limited to intellectual property relating
- * to a hardware implementation of the functionality of the software
- * licensed hereunder.  You may use the software subject to the license
- * terms below provided that you ensure that this notice is replicated
- * unmodified and in its entirety in all distributions of the software,
- * modified or unmodified, in source code or in binary form.
+ * Copyright (c) 2021 Huawei International
+ * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -35,12 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __ARCH_POWER_FS_WORKLOAD_HH__
-#define __ARCH_POWER_FS_WORKLOAD_HH__
+#ifndef __ARCH_RISCV_LINUX_SYSTEM_HH__
+#define __ARCH_RISCV_LINUX_SYSTEM_HH__
 
 #include "arch/power/remote_gdb.hh"
-#include "params/PowerBareMetal.hh"
-#include "sim/workload.hh"
+#include "params/PowerLinux.hh"
+#include "sim/kernel_workload.hh"
 
 namespace gem5
 {
@@ -48,54 +39,23 @@ namespace gem5
 namespace PowerISA
 {
 
-class BareMetal : public Workload
+class FsLinux : public KernelWorkload
 {
   public:
-    bool _isBareMetal;
-    // entry point for simulation
-    Addr _resetVect;
-    loader::ObjectFile *bootloader;
-    loader::SymbolTable bootloaderSymtab;
-    loader::ObjectFile *kernel;
-    loader::SymbolTable kernelSymtab;
-
-    PARAMS(PowerBareMetal);
-    BareMetal(const Params &p);
-    ~BareMetal();
+    PARAMS(PowerLinux);
+    FsLinux(const Params &p) : KernelWorkload(p) {}
 
     void initState() override;
 
     void
     setSystem(System *sys) override
     {
-        Workload::setSystem(sys);
+        KernelWorkload::setSystem(sys);
         gdb = BaseRemoteGDB::build<RemoteGDB>(system);
     }
-
-    loader::Arch getArch() const override { return bootloader->getArch(); }
-
-    const loader::SymbolTable &
-    symtab(ThreadContext *tc) override
-    {
-        return bootloaderSymtab;
-    }
-
-    bool
-    insertSymbol(const loader::Symbol &symbol) override
-    {
-        return bootloaderSymtab.insert(symbol);
-    }
-
-    // return reset vector
-    Addr resetVect() const { return _resetVect; }
-
-    // return bare metal checker
-    bool isBareMetal() const { return _isBareMetal; }
-
-    Addr getEntry() const override { return _resetVect; }
 };
 
 } // namespace PowerISA
 } // namespace gem5
 
-#endif // __ARCH_X86_FS_WORKLOAD_HH__
+#endif // __ARCH_RISCV_LINUX_FS_WORKLOAD_HH__
