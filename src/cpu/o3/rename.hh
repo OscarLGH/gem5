@@ -368,17 +368,17 @@ class Rename
     /** Count of instructions in progress that have been sent off to the IQ
      * and ROB, but are not yet included in their occupancy counts.
      */
-    int instsInProgress[MaxThreads];
+    long instsInProgress[MaxThreads];
 
     /** Count of Load instructions in progress that have been sent off to the
      * IQ and ROB, but are not yet included in their occupancy counts.
      */
-    int loadsInProgress[MaxThreads];
+    long loadsInProgress[MaxThreads];
 
     /** Count of Store instructions in progress that have been sent off to the
      * IQ and ROB, but are not yet included in their occupancy counts.
      */
-    int storesInProgress[MaxThreads];
+    long storesInProgress[MaxThreads];
 
     /** Variable that tracks if decode has written to the time buffer this
      * cycle. Used to tell CPU if there is activity this cycle.

@@ -28,13 +28,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include "arch/power/tlb.hh"
 
+#include <fcntl.h>
 #include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <vector>
 
 #include "arch/power/faults.hh"
+#include "arch/power/pagetable_walker.hh"
 #include "arch/power/pagetable.hh"
 #include "base/inifile.hh"
 #include "base/str.hh"
@@ -64,12 +68,139 @@ TLB::TLB(const Params &p) : BaseTLB(p), size(p.size), nlu(0)
     table = new PowerISA::PTE[size];
     memset(table, 0, sizeof(PowerISA::PTE[size]));
     smallPages = 0;
+    walker = p.walker;
+    initConsoleSnoop();
 }
 
 TLB::~TLB()
 {
     if (table)
         delete [] table;
+}
+
+void
+TLB::initConsoleSnoop(void)
+{
+    int nameStart, addrLen;
+    std::string symName, symHexAddr;
+    std::ifstream in;
+    std::string line;
+
+#if 0
+    /* Find console snoop point for kernel */
+    in.open("dist/m5/system/binaries/objdump_vmlinux");
+    if (!in.is_open()) {
+        panic("Could not find kernel objdump");
+    }
+
+    while (getline(in, line)) {
+        /* Find ".log_store" and the first call to ".memcpy" inside it */
+        nameStart = line.find("<.log_store>:");
+
+        /* Sometimes, optimizations introduce ISRA symbols */
+        if (nameStart == std::string::npos) {
+            nameStart = line.find("<.log_store.isra.1>:");
+        }
+
+        if (nameStart != std::string::npos) {
+            while (getline(in, line)) {
+                if (line.find("<.memcpy>") != std::string::npos &&
+                    (*(line.rbegin())) != ':') {
+                    addrLen = line.find(":");
+                    std::istringstream hexconv(line.substr(0, addrLen));
+                    hexconv >> std::hex >> kernConsoleSnoopAddr;
+
+                    /* Use previous instruction and remove quadrant bits */
+                    kernConsoleSnoopAddr -= 4;
+                    kernConsoleSnoopAddr &= (-1ULL >> 2);
+                    break;
+                }
+            }
+        }
+    }
+
+    in.close();
+
+    if (!kernConsoleSnoopAddr) {
+        panic("Could not determine kernel console snooping address");
+    }
+#endif
+    /* Find console snoop point for skiboot */
+    in.open("dist/m5/system/binaries/objdump_skiboot");
+    if (!in.is_open()) {
+        panic("Could not find skiboot objdump");
+    }
+
+    while (getline(in, line)) {
+        /* Find ".console_write" and the first call to ".write" inside it */
+        nameStart = line.find("<.console_write>:");
+
+        if (nameStart != std::string::npos) {
+            addrLen = line.find(":");
+            std::istringstream hexconv(line.substr(0, addrLen));
+            hexconv >> std::hex >> opalConsoleSnoopAddr;
+
+            /* Add OPAL load offset */
+            opalConsoleSnoopAddr += 0x30000000ULL;
+            break;
+        }
+    }
+
+    inform("Snooping kernel console at 0x%016lx", kernConsoleSnoopAddr);
+    inform("Snooping skiboot console at 0x%016lx", opalConsoleSnoopAddr);
+
+    in.close();
+    if (!opalConsoleSnoopAddr) {
+        panic("Could not determine skiboot console snooping address");
+    }
+}
+
+void
+TLB::trySnoopKernConsole(uint64_t paddr, ThreadContext *tc)
+{
+    uint64_t addr;
+    int len, i;
+    char *buf;
+
+    if (paddr != kernConsoleSnoopAddr) {
+        return;
+    }
+
+    len = (int) tc->readIntReg(5);
+    buf = new char[len + 1];
+    addr = (uint64_t) tc->readIntReg(4) & (-1ULL >> 4);
+
+    for (i = 0; i < len; i++) {
+        buf[i] = (char) walker->readPhysMem(addr + i, 8);
+    }
+
+    buf[i] = '\0';
+    printf("%lu [KERN LOG] %s\n", curTick(), buf);
+    delete buf;
+}
+
+void
+TLB::trySnoopOpalConsole(uint64_t paddr, ThreadContext *tc)
+{
+    uint64_t addr;
+    int len, i;
+    char *buf;
+
+    if (paddr != opalConsoleSnoopAddr) {
+        return;
+    }
+
+    len = (int) tc->readIntReg(5);
+    buf = new char[len + 1];
+    addr = (uint64_t) tc->readIntReg(4) & (-1ULL >> 4);
+
+    for (i = 0; i < len; i++) {
+        buf[i] = (char) walker->readPhysMem(addr + i, 8);
+    }
+
+    buf[i] = '\0';
+    printf("%lu [OPAL LOG] %s\n", curTick(), buf);
+    delete buf;
 }
 
 // look up an entry in the TLB
@@ -265,7 +396,7 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 req->setPaddr(paddr);
 
                 //trySnoopKernConsole(paddr, tc);
-                //trySnoopOpalConsole(paddr, tc);
+                trySnoopOpalConsole(paddr, tc);
 
                 return NoFault;
 
@@ -327,6 +458,12 @@ TLB::index(bool advance)
         nextnlu();
 
     return *pte;
+}
+
+Port *
+TLB::getTableWalkerPort()
+{
+    return &walker->getPort("port");
 }
 
 } // namespace gem5

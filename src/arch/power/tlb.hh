@@ -91,6 +91,8 @@ struct TlbEntry
     }
 };
 
+class Walker;
+
 class TLB : public BaseTLB
 {
   protected:
@@ -159,6 +161,27 @@ class TLB : public BaseTLB
     // Checkpointing
     void serialize(CheckpointOut &cp) const override;
     void unserialize(CheckpointIn &cp) override;
+
+    /**
+     * Get the table walker port. This is used for
+     * migrating port connections during a CPU takeOverFrom()
+     * call. For architectures that do not have a table walker,
+     * NULL is returned, hence the use of a pointer rather than a
+     * reference. For RISC-V this method will always return a valid
+     * port pointer.
+     *
+     * @return A pointer to the walker port
+     */
+    Port *getTableWalkerPort() override;
+
+    uint64_t kernConsoleSnoopAddr;
+    uint64_t opalConsoleSnoopAddr;
+
+    friend class Walker;
+    PowerISA::Walker *walker;
+    void initConsoleSnoop();
+    void trySnoopKernConsole(uint64_t paddr, ThreadContext *tc);
+    void trySnoopOpalConsole(uint64_t paddr, ThreadContext *tc);
 };
 
 } // namespace PowerISA

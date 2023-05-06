@@ -44,3 +44,11 @@ class PowerMMU(BaseMMU):
     cxx_header = 'arch/power/mmu.hh'
     itb = PowerTLB()
     dtb = PowerTLB()
+
+    @classmethod
+    def walkerPorts(cls):
+        return ["mmu.itb.walker.port", "mmu.dtb.walker.port"]
+
+    def connectWalkerPorts(self, iport, dport):
+        self.itb.walker.port = iport
+        self.dtb.walker.port = dport

@@ -26,13 +26,26 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from m5.SimObject import SimObject
 from m5.params import *
+from m5.proxy import *
 
 from m5.objects.BaseTLB import BaseTLB
+from m5.objects.ClockedObject import ClockedObject
+
+class PowerPagetableWalker(ClockedObject):
+    type = 'PowerPagetableWalker'
+    cxx_class = 'gem5::PowerISA::Walker'
+    cxx_header = 'arch/power/pagetable_walker.hh'
+
+    port = RequestPort("Port for the hardware table walker")
+    system = Param.System(Parent.any, "system object")
+    num_squash_per_cycle = Param.Unsigned(4,
+            "Number of outstanding walks that can be squashed per cycle")
 
 class PowerTLB(BaseTLB):
     type = 'PowerTLB'
     cxx_class = 'gem5::PowerISA::TLB'
     cxx_header = 'arch/power/tlb.hh'
     size = Param.Int(64, "TLB size")
+    walker = Param.PowerPagetableWalker(PowerPagetableWalker(), \
+                                         "page table walker")
