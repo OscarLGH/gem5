@@ -372,16 +372,21 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
 {
     Addr paddr;
     Addr vaddr = req->getVaddr();
-    DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+    //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
     vaddr &= 0x0fffffffffffffff;
     if (FullSystem) {
         Msr msr = tc->readIntReg(INTREG_MSR);
         if (mode == BaseMMU::Execute) {
             if (msr.ir){
                 //printf("MSR: %lx\n",(uint64_t)msr);
-                //Fault fault = rwalk->start(tc,req, mode);
-                Fault fault = NoFault;
+                Fault fault = walker->start(tc, NULL, req, mode);
+                //Fault fault = NoFault;
                 paddr = req->getPaddr();
+                DPRINTF(TLB,
+                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
+                if (fault != NoFault) {
+                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                }
 
                 trySnoopKernConsole(paddr, tc);
                 trySnoopOpalConsole(paddr, tc);
@@ -389,9 +394,9 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 return fault;
             }
             else{
-                DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+                //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
                 paddr = vaddr;
-                DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
                 req->setPaddr(paddr);
 
                 trySnoopKernConsole(paddr, tc);
@@ -403,15 +408,20 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
         }
         else{
             if (msr.dr){
-                //Fault fault = rwalk->start(tc,req, mode);
-                Fault fault = NoFault;
+                Fault fault = walker->start(tc,NULL, req, mode);
+                //Fault fault = NoFault;
                 paddr = req->getPaddr();
+                DPRINTF(TLB,
+                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
+                if (fault != NoFault) {
+                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                }
                 return fault;
             }
             else{
-                DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+                //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
                 paddr = vaddr;
-                DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
                 req->setPaddr(paddr);
                 return NoFault;
             }

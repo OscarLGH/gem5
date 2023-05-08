@@ -204,9 +204,98 @@ namespace PowerISA
         {
         }
 
+      public:
         uint64_t readPhysMem(uint64_t addr, uint64_t dataSize);
         uint64_t writePhysMem(uint64_t addr, uint64_t dataSize);
+
+        Addr getRPDEntry(ThreadContext * tc, Addr vaddr);
+        Fault prepareSI(ThreadContext * tc,
+              RequestPtr req, BaseMMU::Mode mode, uint64_t BitMask);
+
+        Fault prepareISI(ThreadContext * tc,
+              RequestPtr req, uint64_t BitMask);
+
+        Fault prepareDSI(ThreadContext * tc, RequestPtr req,
+                         BaseMMU::Mode mode,uint64_t BitMask);
+        BitUnion64(Rpde)
+                Bitfield<63> valid;
+                Bitfield<62> leaf;
+                Bitfield<59, 8>  NLB;
+                Bitfield<4, 0> NLS;
+        EndBitUnion(Rpde)
+
+        BitUnion64(Rpte)
+                Bitfield<63> valid;
+                Bitfield<62> leaf;
+                Bitfield<61> sw1;
+                Bitfield<56,12> rpn;
+                Bitfield<11,9> sw2;
+                Bitfield<8> ref;
+                Bitfield<7> c;
+                Bitfield<5,4> att;
+                Bitfield<3> pri;
+                Bitfield<2> read;
+                Bitfield<1> r_w;
+                Bitfield<0> exe;
+        EndBitUnion(Rpte)
+
+        std::pair<Addr,Fault> walkTree(Addr vaddr ,uint64_t curBase ,
+            ThreadContext * tc ,BaseMMU::Mode mode , RequestPtr req,
+                         uint64_t curSize ,uint64_t usefulBits);
     };
+
+#define PRTB_SHIFT     12
+#define PRTB_MASK      0x0ffffffffffff
+#define PRTB_ALIGN     4
+#define TABLE_BASE_ALIGN     PRTB_SHIFT
+#define DSISR_MASK    0x00000000ffffffff
+
+#define RPDB_SHIFT     8
+#define RPDB_MASK      0x0fffffffffffff
+
+#define RPDS_SHIFT     0
+#define RPDS_MASK      0x1f
+
+#define NLB_SHIFT      RPDB_SHIFT
+#define NLB_MASK       RPDB_MASK
+
+#define NLS_SHIFT      RPDS_SHIFT
+#define NLS_MASK       RPDS_MASK
+
+#define DIR_BASE_ALIGN  RPDB_SHIFT
+
+#define RTS1_SHIFT     61
+#define RTS1_MASK      0x3
+#define RTS2_BITS      3
+#define RTS2_SHIFT     5
+#define RTS2_MASK      ((1 << RTS2_BITS) - 1)
+
+#define   NOHPTE      0x0000000040000000
+            /*Bit-33 Acc to ISA: no translation found */
+#define  PROTFAULT   0x0000000008000000
+           /* Bit-36 Acc to ISA:protection fault */
+#define  ISSTORE     0x0000000002000000
+           /* Bit-38 Acc to ISA:access was a store */
+#define  UNSUPP_MMU  0x0000000000080000
+           /*Bit-44 P9: Unsupported MMU config */
+#define  PRTABLE_FAULT 0x0000000000020000
+          /*Bit-46  P9: Fault on process table */
+
+#define RPN_MASK      0x01fffffffffff000
+
+#define QUADRANT_MASK 0xc000000000000000
+#define QUADRANT00   0x0000000000000000
+#define QUADRANT01   0x4000000000000000
+#define QUADRANT10   0x8000000000000000
+#define QUADRANT11   0xc000000000000000
+
+#define extract(x, shift, mask)   ((x >> shift) & mask)
+#define align(x, bits) (x << bits)
+#define setBitMask(shift) ( (uint64_t)1 << shift)
+#define unsetMask(start ,end)(~((setBitMask(start))-1) | ((setBitMask(end))-1))
+
+#define getRTS(x)      ((extract(x, RTS1_SHIFT, RTS1_MASK) << RTS2_BITS) | \
+                        (extract(x, RTS2_SHIFT, RTS2_MASK)))
 
 } // namespace PowerISA
 } // namespace gem5

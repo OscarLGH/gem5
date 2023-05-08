@@ -122,6 +122,11 @@ BitUnion64(Msr)
     Bitfield<0> le;
 EndBitUnion(Msr)
 
+BitUnion64(Ptcr)
+    Bitfield<59,12> patb;
+    Bitfield<4,0> pats;
+EndBitUnion(Ptcr)
+
 BitUnion64(Lpcr)
     Bitfield<63,60> vc;
     Bitfield<54,52> dpfd;
