@@ -1,0 +1,6 @@
+Import('*')
+
+if env['TARGET_ISA'] == 'power':
+    SimObject('G500.py')
+
+    Source('g500.cc')

@@ -672,6 +672,8 @@ def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
     self.membus = MemBus()
 
     self.bridge = Bridge(delay='50ns')
+    self.g500 = G500()
+    self.g500.attachIO(self.iobus)
     self.mem_mode = mem_mode
     self.mem_ranges = [AddrRange('3GB')]
     self.bridge.master = self.iobus.slave
@@ -679,6 +681,8 @@ def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
     self.bridge.ranges = \
         [
         AddrRange(0xC0000000, 0xFFFF0000),
+        AddrRange(self.g500.uart.pio_addr,
+            self.g500.uart.pio_addr + 8 - 1)
         ]
     self.system_port = self.membus.slave
     #self.intrctrl = IntrControl()
