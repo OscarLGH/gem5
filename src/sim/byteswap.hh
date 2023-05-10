@@ -134,7 +134,9 @@ inline std::enable_if_t<
     sizeof(T) == 8 && std::is_convertible<T, uint64_t>::value, T>
 swap_byte(T x)
 {
-    return swap_byte64((uint64_t)x);
+    uint64_t i_val = *(uint64_t *)&x;
+    i_val = swap_byte64((uint64_t)i_val);
+    return *((T *)&i_val);
 }
 
 template <typename T>
@@ -142,7 +144,9 @@ inline std::enable_if_t<
     sizeof(T) == 4 && std::is_convertible<T, uint32_t>::value, T>
 swap_byte(T x)
 {
-    return swap_byte32((uint32_t)x);
+    uint32_t i_val = *(uint32_t *)&x;
+    i_val = swap_byte32((uint32_t)i_val);
+    return *((T *)&i_val);
 }
 
 template <typename T>
