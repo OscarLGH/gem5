@@ -152,7 +152,13 @@ decode PO default Unknown::unknown() {
     16: BranchDispCondOp::bc({{ NIA = CIA + bd; }},
                              {{ NIA = bd; }});
 
-    17: IntOp::sc({{ return std::make_shared<SESyscallFault>(); }});
+    17: IntOp::sc({{
+        if (FullSystem) {
+            fault= std::make_shared<SystemCallInterrupt>();
+        } else {
+            return std::make_shared<SESyscallFault>(); 
+        }
+    }}, [ IsSyscall, IsNonSpeculative, IsSerializeAfter ]);
 
     // Unconditionally branch to a PC-relative or absoulute address.
     18: BranchOp::b({{ NIA = CIA + li; }},
@@ -607,6 +613,15 @@ decode PO default Unknown::unknown() {
                     Rt = 0;
                 }
             }});
+
+            //TODO: Right now we doesn't support DARN instruction
+            // Not returning random number, Just Setting value to -1.
+            //Need to FIX that instruction
+
+            755: darn({{
+                  Rt = -1;
+            }});
+
         }
 
         //278: MiscOp::dcbt({{ }});

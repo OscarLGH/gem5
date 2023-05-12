@@ -41,6 +41,7 @@
 #include "arch/power/remote_gdb.hh"
 #include "params/PowerBareMetal.hh"
 #include "sim/workload.hh"
+#include "sim/kernel_workload.hh"
 
 namespace gem5
 {
@@ -48,7 +49,7 @@ namespace gem5
 namespace PowerISA
 {
 
-class BareMetal : public Workload
+class BareMetal : public KernelWorkload
 {
   public:
     bool _isBareMetal;

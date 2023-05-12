@@ -51,7 +51,7 @@ namespace gem5
 namespace PowerISA
 {
 
-BareMetal::BareMetal(const Params &p) : Workload(p),
+BareMetal::BareMetal(const Params &p) : KernelWorkload(p),
 _isBareMetal(p.bare_metal),
 bootloader(loader::createObjectFile(p.bootloader)),
 kernel(loader::createObjectFile(p.kernel_filename))
@@ -71,7 +71,7 @@ BareMetal::~BareMetal()
 void
 BareMetal::initState()
 {
-    Workload::initState();
+    KernelWorkload::initState();
     printf("PowerSystem::initState: No of thread contexts %d\n" ,
                     (int)system->threads.size());
     //printf("bootloader entry point: %p\n" ,
@@ -124,6 +124,7 @@ BareMetal::initState()
 
         auto *dtb_file = new loader::DtbFile(params().dtb_filename);
 
+        dtb_file->addBootCmdLine(params().command_line.c_str(), params().command_line.size());
         dtb_file->buildImage().offset(params().dtb_addr)
             .write(system->physProxy);
         delete dtb_file;

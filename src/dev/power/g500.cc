@@ -1,5 +1,6 @@
 #include "dev/power/g500.hh"
 
+#include "cpu/base.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -8,15 +9,17 @@ namespace gem5
 using namespace std;
 
 PowerISA::G500::G500(const Params &p)
-    : Platform(p)
+    : Platform(p),system(p.system)
 {}
 
 void
 PowerISA::G500::postConsoleInt()
 {
     //warn_once("Don't know what interrupt to post for console.\n");
-    cout<<"Post console intr\n";
+    //cout<<"Post console intr\n";
     //this->intrctrl->post(2,0);
+    auto tc = system->threads[0];
+    tc->getCpuPtr()->postInterrupt(tc->threadId(), 2, 0);
     //panic("Need implementation\n");
 }
 
@@ -26,6 +29,8 @@ PowerISA::G500::clearConsoleInt()
     //warn_once("Don't know what interrupt to clear for console.\n");
     //cout<<"Clear console intr\n";
     //this->intrctrl->clear(2,0);
+    auto tc = system->threads[0];
+    tc->getCpuPtr()->clearInterrupt(tc->threadId(), 2, 0);
     //panic("Need implementation\n");
 }
 

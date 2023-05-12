@@ -33,7 +33,9 @@
 #include "arch/power/regs/int.hh"
 #include "arch/power/regs/misc.hh"
 #include "cpu/thread_context.hh"
+#include "enums/ByteOrder.hh"
 #include "sim/faults.hh"
+
 
 namespace gem5
 {
@@ -41,8 +43,8 @@ namespace gem5
 namespace PowerISA
 {
 
-#define SRR1_TRAP_BIT     16
-#define SRR1_PRI_BIT      17
+#define SRR1_TRAP_BIT     17
+#define SRR1_PRI_BIT      18
 #define SRR1_ILLEGAL_INSTR_BIT 18
 
 #define setbit(shift, mask) ( (uint64_t)1 << shift | mask)
@@ -161,6 +163,7 @@ class PowerInterrupt : public PowerFault
     {
       Msr msr = tc->readIntReg(INTREG_MSR);
       uint64_t srr1 = ((msr & unsetMask(31, 27)) & unsetMask(22,16)) | BitMask;
+      //printf("set srr1:%llx\n", srr1);
       tc->setIntReg(INTREG_SRR1, srr1);
     }
 
@@ -202,7 +205,11 @@ class DirectExternalInterrupt : public PowerInterrupt
         msr.hv = 1;
         tc->setIntReg(INTREG_MSR, msr);
       }
-      tc->pcState(DirectExternalPCSet);
+      //tc->pcState(DirectExternalPCSet);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(DirectExternalPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
 };
 
@@ -218,7 +225,10 @@ class PriDoorbellInterrupt : public PowerInterrupt
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
-      tc->pcState(PriDoorbellPCSet);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(PriDoorbellPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
 };
 
@@ -238,7 +248,10 @@ class HypDoorbellInterrupt : public PowerInterrupt
       Msr msr = tc->readIntReg(INTREG_MSR);
       msr.hv = 1;
       tc->setIntReg(INTREG_MSR, msr);
-      tc->pcState(HypDoorbellPCSet);
+      //tc->pcState(HypDoorbellPCSet);
+      PCState *pc = new PCState(HypDoorbellPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
 };
 
@@ -257,7 +270,11 @@ public:
     {
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateMsr(tc);
-      tc->pcState(InstrStoragePCSet);
+      //tc->pcState(InstrStoragePCSet);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(InstrStoragePCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
 };
 
@@ -274,7 +291,11 @@ public:
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
-      tc->pcState(DataStoragePCSet);
+      //tc->pcState(DataStoragePCSet);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(DataStoragePCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
 };
 
@@ -291,7 +312,12 @@ class ProgramInterrupt : public PowerInterrupt
       tc->setIntReg(INTREG_SRR0, tc->instAddr());
       PowerInterrupt::updateSRR1(tc, bitSet);
       PowerInterrupt::updateMsr(tc);
-      tc->pcState(ProgramPCSet);
+      //tc->pcState(ProgramPCSet);
+      printf("Program Fault! pc = %llx\n", tc->pcState().instAddr());
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(ProgramPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
 };
 
@@ -337,9 +363,7 @@ class ProgramPriInterrupt : public ProgramInterrupt
 class SystemCallInterrupt : public PowerInterrupt
 {
   public:
-    SystemCallInterrupt();
-    virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst);
-    /* SystemCallInterrupt()
+    SystemCallInterrupt()
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
@@ -349,9 +373,12 @@ class SystemCallInterrupt : public PowerInterrupt
       tc->setIntReg(INTREG_SRR0 , tc->instAddr() + 4);
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
-      tc->pcState(SystemCallPCSet);
+      //tc->pcState(SystemCallPCSet);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(SystemCallPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
-    */
 };
 
 class DecrementerInterrupt : public PowerInterrupt
@@ -367,7 +394,11 @@ class DecrementerInterrupt : public PowerInterrupt
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
-      tc->pcState(DecrementerPCSet);
+      //tc->pcState(DecrementerPCSet);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(DecrementerPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
     }
 };
 

@@ -414,7 +414,7 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 DPRINTF(TLB,
                     "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
                 if (fault != NoFault) {
-                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                    printf("translation fault:%s.\n", fault->name());
                 }
                 return fault;
             }

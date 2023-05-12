@@ -20,7 +20,11 @@ namespace PowerISA
 
 class G500 : public Platform
 {
-    public:
+
+protected:
+    System *system;
+
+public:
     typedef G500Params Params;
 
     G500(const Params &p);

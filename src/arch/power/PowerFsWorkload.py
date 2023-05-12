@@ -36,7 +36,7 @@
 from m5.params import *
 from m5.objects.Workload import *
 
-class PowerBareMetal(Workload):
+class PowerBareMetal(KernelWorkload):
     type = 'PowerBareMetal'
     cxx_class = 'gem5::PowerISA::BareMetal'
     cxx_header = 'arch/power/bare_metal/fs_workload.hh'

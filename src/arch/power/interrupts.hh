@@ -30,8 +30,22 @@
 #define __ARCH_POWER_INTERRUPT_HH__
 
 #include "arch/generic/interrupts.hh"
+#include "arch/power/faults.hh"
+#include "arch/power/regs/int.hh"
 #include "base/logging.hh"
 #include "params/PowerInterrupts.hh"
+
+#define NumInterruptLevels 8
+
+#define SystemReset 0 //System Reset Interrupt(Highest Priority)
+#define MachineCheck 1 //Machine Check Interrupt
+#define DirectExt 2 //Direct External Interrupt
+#define MediatedExt 3 //Mediated External Interrupt
+#define Decrementer 4 //Decrementer Interrupt
+#define PerfMoniter 5 //Performance Monitor Interrupt
+#define DirPriDoorbell 6 //Directed Privileged Doorbell Interrupt
+#define DirHypDoorbell 7 //Directed Hypervisor Doorbell Interrupt
+
 
 namespace gem5
 {
@@ -43,48 +57,90 @@ namespace PowerISA {
 
 class Interrupts : public BaseInterrupts
 {
+
+  protected:
+    std::bitset<NumInterruptLevels> interrupts;
+
   public:
     using Params = PowerInterruptsParams;
 
-    Interrupts(const Params &p) : BaseInterrupts(p) {}
+    Interrupts(const Params &p) : BaseInterrupts(p), interrupts(0) {}
 
     void
     post(int int_num, int index)
     {
-        panic("Interrupts::post not implemented.\n");
+        //DPRINTF(Interrupt, "Interrupt %d: posted\n", int_num);
+        if (int_num < 0 || int_num >= NumInterruptLevels)
+            panic("int_num out of bounds for fun POST%d\n",int_num);
+        interrupts[int_num] = 1;
     }
 
     void
     clear(int int_num, int index)
     {
-        panic("Interrupts::clear not implemented.\n");
+        //DPRINTF(Interrupt, "Interrupt %d:\n", int_num);
+        if (int_num < 0 || int_num >= NumInterruptLevels)
+            panic("int_num out of bounds for fun CLEAR%d\n",int_num);
+        interrupts[int_num] = 0;
     }
 
     void
     clearAll()
     {
-        panic("Interrupts::clearAll not implemented.\n");
+        interrupts = 0;
     }
 
     bool
-    checkInterrupts() const
+    checkInterrupts()
     {
-        //panic("Interrupts::checkInterrupts not implemented.\n");
+        Msr msr = tc->readIntReg(INTREG_MSR);
+        tc->setIntReg(INTREG_TB , tc->readIntReg(INTREG_TB)+1);
+        if (tc->readIntReg(INTREG_DEC) != 0)
+            tc->setIntReg(INTREG_DEC , tc->readIntReg(INTREG_DEC)-1);
+        else
+            post(Decrementer, 0);
+        if (msr.ee)
+        {
+            if (interrupts[2] == 1)
+                return true;
+            for (int i = 0; i < NumInterruptLevels; i++) {
+                if (interrupts[i] == 1)
+                    return true;
+            }
+        }
+        if (interrupts[DirHypDoorbell] && (!msr.hv || msr.pr))
+            return true;
         return false;
     }
 
     Fault
     getInterrupt()
     {
-        //assert(checkInterrupts());
-        //panic("Interrupts::getInterrupt not implemented.\n");
-        return NoFault;
+        assert(checkInterrupts());
+        if (interrupts[Decrementer]) {
+            clear(Decrementer,0);
+            return std::make_shared<DecrementerInterrupt>();
+        }
+        else if (interrupts[DirPriDoorbell]) {
+            clear(DirPriDoorbell,0);
+            return std::make_shared<PriDoorbellInterrupt>();
+        }
+        else if (interrupts[DirHypDoorbell]) {
+            clear(DirHypDoorbell,0);
+            return std::make_shared<HypDoorbellInterrupt>();
+        }
+        else if (interrupts[DirectExt]){
+            clear(DirectExt,0);
+            return std::make_shared<DirectExternalInterrupt>();
+        }
+
+        else return NoFault;
     }
 
     void
     updateIntrInfo()
     {
-        panic("Interrupts::updateIntrInfo not implemented.\n");
+        tc->setIntReg(INTREG_DEC , 0xffffffffffffffff);
     }
 };
 

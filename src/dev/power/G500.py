@@ -9,7 +9,7 @@ class G500(Platform):
     type = 'G500'
     cxx_header = "dev/power/g500.hh"
     cxx_class = 'gem5::PowerISA::G500'
-    #system = Param.System(Parent.any, "system")
+    system = Param.System(Parent.any, "system")
     terminal = Terminal()
     uart = Uart8250(pio_addr=0xFFFF4505)
 

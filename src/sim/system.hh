@@ -400,7 +400,7 @@ class System : public SimObject, public PCEventScope
     ByteOrder
     getGuestByteOrder() const
     {
-        return ByteOrder::little;
+        return ByteOrder::big;
     }
 
      /**
