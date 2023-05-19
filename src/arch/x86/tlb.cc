@@ -432,6 +432,7 @@ TLB::translate(const RequestPtr &req,
                 } else {
                     stats.wrMisses++;
                 }
+
                 if (FullSystem) {
                     Fault fault = walker->start(tc, translation, req, mode);
                     if (timing || fault != NoFault) {
@@ -443,20 +444,34 @@ TLB::translate(const RequestPtr &req,
                     assert(entry);
                 } else {
                     Process *p = tc->getProcessPtr();
-                    const EmulationPageTable::Entry *pte =
-                        p->pTable->lookup(vaddr);
-                    if (!pte) {
-                        return std::make_shared<PageFault>(vaddr, true, mode,
-                                                           true, false);
+                    Addr alignedVaddr = p->pTable->pageAlign(vaddr);
+                    if (alignedVaddr >= 0xffff800000000000
+                        && alignedVaddr < 0xffff800080000000) {
+                        printf("vaddr hit PIM region.\n");
+                        Addr paddr = alignedVaddr - 0xffff800000000000 + 0x80000000;
+                        DPRINTF(TLB, "Mapping PIM %#x to %#x\n", alignedVaddr,
+                                    paddr);
+                            entry = insert(alignedVaddr, TlbEntry(
+                                    p->pTable->pid(), alignedVaddr, paddr,
+                                    0,
+                                    0),
+                                    pcid);
                     } else {
-                        Addr alignedVaddr = p->pTable->pageAlign(vaddr);
-                        DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr,
-                                pte->paddr);
-                        entry = insert(alignedVaddr, TlbEntry(
-                                p->pTable->pid(), alignedVaddr, pte->paddr,
-                                pte->flags & EmulationPageTable::Uncacheable,
-                                pte->flags & EmulationPageTable::ReadOnly),
-                                pcid);
+                        const EmulationPageTable::Entry *pte =
+                            p->pTable->lookup(vaddr);
+                        if (!pte) {
+                            return std::make_shared<PageFault>(vaddr, true, mode,
+                                                            true, false);
+                        } else {
+                            Addr alignedVaddr = p->pTable->pageAlign(vaddr);
+                            DPRINTF(TLB, "Mapping %#x to %#x\n", alignedVaddr,
+                                    pte->paddr);
+                            entry = insert(alignedVaddr, TlbEntry(
+                                    p->pTable->pid(), alignedVaddr, pte->paddr,
+                                    pte->flags & EmulationPageTable::Uncacheable,
+                                    pte->flags & EmulationPageTable::ReadOnly),
+                                    pcid);
+                        }
                     }
                     DPRINTF(TLB, "Miss was serviced.\n");
                 }

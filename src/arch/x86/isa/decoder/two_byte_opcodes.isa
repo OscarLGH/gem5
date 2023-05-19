@@ -160,6 +160,7 @@
                 uint64_t result;
                 bool recognized = pseudo_inst::pseudoInst<X86PseudoInstABI>(
                         xc->tcBase(), IMMEDIATE, result);
+                printf("cur tick:%lu\n", curTick());
                 Rax = result;
                 if (!recognized)
                     fault = std::make_shared<InvalidOpcode>();
