@@ -89,7 +89,7 @@ TLB::initConsoleSnoop(void)
     /* Find console snoop point for kernel */
     in.open("dist/m5/system/binaries/objdump_vmlinux");
     if (!in.is_open()) {
-        panic("Could not find kernel objdump");
+        warn("Could not find kernel objdump");
     }
 
     while (getline(in, line)) {
@@ -121,13 +121,13 @@ TLB::initConsoleSnoop(void)
     in.close();
 
     if (!kernConsoleSnoopAddr) {
-        panic("Could not determine kernel console snooping address");
+        warn("Could not determine kernel console snooping address");
     }
 
     /* Find console snoop point for skiboot */
     in.open("dist/m5/system/binaries/objdump_skiboot");
     if (!in.is_open()) {
-        panic("Could not find skiboot objdump");
+        warn("Could not find skiboot objdump");
     }
 
     while (getline(in, line)) {
@@ -150,7 +150,7 @@ TLB::initConsoleSnoop(void)
 
     in.close();
     if (!opalConsoleSnoopAddr) {
-        panic("Could not determine skiboot console snooping address");
+        warn("Could not determine skiboot console snooping address");
     }
 }
 

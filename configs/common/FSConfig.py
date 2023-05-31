@@ -691,7 +691,7 @@ def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
         ]
     self.system_port = self.membus.slave
     if not cmdline:
-        cmdline = 'earlyprintk=ttyS0 console=ttyS0 irqpoll lpj=1000000000'
+        cmdline = 'console=ttyS0 ramdisk_start=0x28000000'
     self.workload.command_line = fillInCmdline(mdesc, cmdline)
 
     return self

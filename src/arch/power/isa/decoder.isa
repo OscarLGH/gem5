@@ -640,6 +640,10 @@ decode PO default Unknown::unknown() {
             375: lhaux({{ Rt = Mem_sh; }});
         }
 
+        342: MiscOp::dst({{ }});
+        374: MiscOp::dstst({{ }});
+        822: MiscOp::dss({{ }});
+
         378: IntLogicOp::popcntw({{
         #if defined(__GNUC__) || (defined(__clang__) && \
                 __has_builtin(__builtin_popcount))
@@ -1225,6 +1229,12 @@ decode PO default Unknown::unknown() {
                 0x3E8: mfpvr({{ Rt = PVR; }});
                 0x3e9: mflpidr({{Rt = LPIDR;}});
                 0x3ff: mfpir({{ Rt = PIR;}}, [ IsPrivileged ]);
+
+                0x218: mfspr218({{ }});
+                0x238: mfmmcr2({{Rt = MMCR2;}});
+                0x378: mfmmcr0({{Rt = MMCR0;}});
+                0x398: mfspr398({{ }});
+                0x3b8: mfspr3b8({{ }});
             }
             467: decode SPR {
                 0x004: mttfhar({{TFHAR = Rs;}});
@@ -1302,6 +1312,10 @@ decode PO default Unknown::unknown() {
                 0x3c9: mtlpcr({{LPCR = Rs;}});
                 0x3d8: mtmmcr1({{MMCR1 = Rs;}});
                 0x3e9: mtlpidr({{LPIDR = Rs;}});
+
+                0x218: mtspr218({{ }});
+                0x398: mtspr398({{ }});
+                0x3b8: mtspr3b8({{ }});
             }
 
             83: mfmsr({{ Rt = MSR; }}, [ IsPrivileged ]);

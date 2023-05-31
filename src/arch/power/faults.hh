@@ -291,6 +291,8 @@ public:
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
+      printf("DataStorageFault.pc = %llx addr = %llx\n",
+        tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR));
       //tc->pcState(DataStoragePCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(DataStoragePCSet,
@@ -313,7 +315,7 @@ class ProgramInterrupt : public PowerInterrupt
       PowerInterrupt::updateSRR1(tc, bitSet);
       PowerInterrupt::updateMsr(tc);
       //tc->pcState(ProgramPCSet);
-      printf("Program Fault! pc = %llx\n", tc->pcState().instAddr());
+      //printf("Program Fault! pc = %llx\n", tc->pcState().instAddr());
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(ProgramPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);

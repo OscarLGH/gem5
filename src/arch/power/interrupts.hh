@@ -95,10 +95,14 @@ class Interrupts : public BaseInterrupts
     {
         Msr msr = tc->readIntReg(INTREG_MSR);
         tc->setIntReg(INTREG_TB , tc->readIntReg(INTREG_TB)+1);
+        tc->setIntReg(INTREG_TBU , tc->readIntReg(INTREG_TB) >> 32);
+        tc->setIntReg(INTREG_TBL , tc->readIntReg(INTREG_TB));
         if (tc->readIntReg(INTREG_DEC) != 0)
             tc->setIntReg(INTREG_DEC , tc->readIntReg(INTREG_DEC)-1);
-        else
+        else {
+            tc->setIntReg(INTREG_DEC, 0xffffffffU);
             post(Decrementer, 0);
+        }
         if (msr.ee)
         {
             if (interrupts[2] == 1)
@@ -140,7 +144,7 @@ class Interrupts : public BaseInterrupts
     void
     updateIntrInfo()
     {
-        tc->setIntReg(INTREG_DEC , 0xffffffffffffffff);
+        //tc->setIntReg(INTREG_DEC , 0xffffffff);
     }
 };
 

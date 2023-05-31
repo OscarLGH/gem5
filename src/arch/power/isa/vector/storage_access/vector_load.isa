@@ -19,11 +19,14 @@ format VecLoadIndexOp {
         Vt_uq[0] = Mem_uq;
     }});
 
+}
+format IntArithOp {
     6: lvsl({{
+        uint64_t EA = RA ? Ra + Rb : Rb;
         uint8_t sh = bits(EA, 3, 0);
         __uint128_t val_128;
         uint8_t *val = (uint8_t *)&val_128;
-        Mem_uq;
+        //Mem_uq;
 
         uint8_t bytes[] = {
             0x1f, 0x1e, 0x1d, 0x1c, 0x1b, 0x1a, 0x19, 0x18, 
@@ -39,10 +42,11 @@ format VecLoadIndexOp {
     }});
 
     38: lvsr({{
+        uint64_t EA = RA ? Ra + Rb : Rb;
         uint8_t sh = bits(EA, 3, 0);
         __uint128_t val_128;
         uint8_t *val = (uint8_t *)&val_128;
-        Mem_uq;
+        //Mem_uq;
 
         uint8_t bytes[] = {
             0x1f, 0x1e, 0x1d, 0x1c, 0x1b, 0x1a, 0x19, 0x18, 

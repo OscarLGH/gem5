@@ -41,6 +41,7 @@
 #include "arch/power/regs/int.hh"
 #include "arch/power/regs/misc.hh"
 #include "base/loader/dtb_file.hh"
+#include "base/loader/raw_image.hh"
 #include "base/loader/object_file.hh"
 #include "cpu/thread_context.hh"
 #include "sim/system.hh"
@@ -60,6 +61,7 @@ kernel(loader::createObjectFile(p.kernel_filename))
     _resetVect = bootloader->entryPoint();
     bootloaderSymtab = bootloader->symtab();
     kernelSymtab = kernel->symtab();
+    loader::debugSymbolTable.insert(kernelSymtab);
     kernel->updateBias(p.kernel_addr);
 }
 
@@ -134,6 +136,15 @@ BareMetal::initState()
         }
     } else {
         warn("No DTB file specified\n");
+    }
+
+    if (params().initramfs_filename != "") {
+        inform("Loading initramfs file: %s at address %#x\n", params().initramfs_filename,
+                params().initramfs_addr);
+        auto *initramfs_file = new loader::RawImage(params().initramfs_filename);
+        initramfs_file->buildImage().offset(params().initramfs_addr)
+            .write(system->physProxy);
+        delete initramfs_file;
     }
 
     for (auto *tc: system->threads) {
