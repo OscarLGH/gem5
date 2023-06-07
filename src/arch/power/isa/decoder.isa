@@ -491,7 +491,9 @@ decode PO default Unknown::unknown() {
         format StoreIndexOp {
             149: stdx({{ Mem = Rs }});
             150: stwcx({{
-                Mem_uw = Rs_uw;
+                if (Rsv) {
+                    Mem_uw = Rs_uw;
+                }
             }}, {{
                 bool store_performed = false;
                 if (Rsv) {
@@ -500,6 +502,7 @@ decode PO default Unknown::unknown() {
                             store_performed = true;
                         }
                     }
+                    store_performed = true;
                 }
                 Xer xer = XER;
                 PowerISA::Cr cr = CR;
@@ -549,7 +552,9 @@ decode PO default Unknown::unknown() {
 
         format StoreIndexOp {
             214: stdcx({{
-                Mem = Rs;
+                if (Rsv) {
+                    Mem = Rs;
+                }
             }}, {{
                 bool store_performed = false;
                 if (Rsv) {
@@ -558,6 +563,7 @@ decode PO default Unknown::unknown() {
                             store_performed = true;
                         }
                     }
+                    store_performed = true;
                 }
                 Xer xer = XER;
                 Cr cr = CR;
@@ -768,7 +774,9 @@ decode PO default Unknown::unknown() {
             //663: stfsx({{ Mem_sf = Fs_sf; }});
 
             694: stbcx({{
-                Mem_ub = Rs_ub;
+                if (Rsv) {
+                    Mem_ub = Rs_ub;
+                }
             }}, {{
                 bool store_performed = false;
                 if (Rsv) {
@@ -777,6 +785,7 @@ decode PO default Unknown::unknown() {
                             store_performed = true;
                         }
                     }
+                    store_performed = true;
                 }
                 Xer xer = XER;
                 Cr cr = CR;
@@ -790,7 +799,9 @@ decode PO default Unknown::unknown() {
 
         format StoreIndexOp {
             726: sthcx({{
-                Mem_uh = Rs_uh;
+                if (Rsv) {
+                    Mem_uh = Rs_uh;
+                }
             }}, {{
                 bool store_performed = false;
                 if (Rsv) {
@@ -799,6 +810,7 @@ decode PO default Unknown::unknown() {
                             store_performed = true;
                         }
                     }
+                    store_performed = true;
                 }
                 Xer xer = XER;
                 Cr cr = CR;

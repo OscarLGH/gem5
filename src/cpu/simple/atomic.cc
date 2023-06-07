@@ -381,23 +381,13 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t *data, unsigned size,
     bool predicate;
     Fault fault = NoFault;
 
-    bool enable = false;
-
     while (1) {
         predicate = genMemFragmentRequest(req, frag_addr, size, flags,
                                           byte_enable, frag_size, size_left);
-
         // translate to physical address
         if (predicate) {
             fault = thread->mmu->translateAtomic(req, thread->getTC(),
                                                  BaseMMU::Read);
-            if (fault != NoFault) {
-                printf("Fault!name = %s\n", fault->name());
-                enable = true;
-            } 
-            if (enable) {
-                printf("NoFault\n");
-            }
         }
 
         // Now do the access.

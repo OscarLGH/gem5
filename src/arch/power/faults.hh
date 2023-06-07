@@ -33,6 +33,7 @@
 #include "arch/power/regs/int.hh"
 #include "arch/power/regs/misc.hh"
 #include "cpu/thread_context.hh"
+#include "debug/Interrupt.hh"
 #include "enums/ByteOrder.hh"
 #include "sim/faults.hh"
 
@@ -185,7 +186,7 @@ class DirectExternalInterrupt : public PowerInterrupt
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                         StaticInst::nullStaticInstPtr)
     {
-      printf("Direct External Interrupt invoked\n");
+      DPRINTF(Interrupt, "Direct External Interrupt invoked\n");
       // Refer Power ISA Manual v3.0B Book-III, section 6.5.7.1
       Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
 
@@ -241,7 +242,7 @@ class HypDoorbellInterrupt : public PowerInterrupt
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      printf("In Hypervisor interrupt\n");
+      DPRINTF(Interrupt, "In Hypervisor interrupt\n");
       tc->setIntReg(INTREG_HSRR0 , tc->instAddr());
       PowerInterrupt::updateHSRR1(tc);
       PowerInterrupt::updateMsr(tc);
@@ -291,7 +292,7 @@ public:
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
-      printf("DataStorageFault.pc = %llx addr = %llx\n",
+      DPRINTF(Interrupt, "DataStorageFault.pc = %llx addr = %llx\n",
         tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR));
       //tc->pcState(DataStoragePCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
@@ -392,6 +393,8 @@ class DecrementerInterrupt : public PowerInterrupt
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                         StaticInst::nullStaticInstPtr)
     {
+      DPRINTF(Interrupt, "DecrementerInterrupt.pc = %llx\n",
+        tc->pcState().instAddr());
       // Refer Power ISA Manual v3.0B Book-III, section 6.5.11
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);

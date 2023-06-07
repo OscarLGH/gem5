@@ -69,7 +69,7 @@ TLB::TLB(const Params &p) : BaseTLB(p), size(p.size), nlu(0)
     memset(table, 0, sizeof(PowerISA::PTE[size]));
     smallPages = 0;
     walker = p.walker;
-    initConsoleSnoop();
+    //initConsoleSnoop();
 }
 
 TLB::~TLB()
@@ -388,8 +388,8 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                     DPRINTF(TLB, "translation fault:%s.\n", fault->name());
                 }
 
-                trySnoopKernConsole(paddr, tc);
-                trySnoopOpalConsole(paddr, tc);
+                //trySnoopKernConsole(paddr, tc);
+                //trySnoopOpalConsole(paddr, tc);
 
                 return fault;
             }
@@ -399,8 +399,8 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
                 req->setPaddr(paddr);
 
-                trySnoopKernConsole(paddr, tc);
-                trySnoopOpalConsole(paddr, tc);
+                //trySnoopKernConsole(paddr, tc);
+                //trySnoopOpalConsole(paddr, tc);
 
                 return NoFault;
 
@@ -413,9 +413,6 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 paddr = req->getPaddr();
                 DPRINTF(TLB,
                     "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
-                if (fault != NoFault) {
-                    printf("translation fault:%s.\n", fault->name());
-                }
                 return fault;
             }
             else{

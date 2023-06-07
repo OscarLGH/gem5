@@ -33,6 +33,7 @@
 #include "arch/power/faults.hh"
 #include "arch/power/regs/int.hh"
 #include "base/logging.hh"
+#include "debug/Interrupt.hh"
 #include "params/PowerInterrupts.hh"
 
 #define NumInterruptLevels 8
@@ -57,19 +58,22 @@ namespace PowerISA {
 
 class Interrupts : public BaseInterrupts
 {
-
+  private:
+    unsigned long inner_counter;
+    unsigned long timebase_divider;
   protected:
     std::bitset<NumInterruptLevels> interrupts;
 
   public:
     using Params = PowerInterruptsParams;
 
-    Interrupts(const Params &p) : BaseInterrupts(p), interrupts(0) {}
+    Interrupts(const Params &p) : BaseInterrupts(p), interrupts(0),
+        inner_counter(0), timebase_divider(1) {}
 
     void
     post(int int_num, int index)
     {
-        //DPRINTF(Interrupt, "Interrupt %d: posted\n", int_num);
+        DPRINTF(Interrupt, "Interrupt %d: posted.\n", int_num);
         if (int_num < 0 || int_num >= NumInterruptLevels)
             panic("int_num out of bounds for fun POST%d\n",int_num);
         interrupts[int_num] = 1;
@@ -78,7 +82,7 @@ class Interrupts : public BaseInterrupts
     void
     clear(int int_num, int index)
     {
-        //DPRINTF(Interrupt, "Interrupt %d:\n", int_num);
+        DPRINTF(Interrupt, "Interrupt %d: cleared.\n", int_num);
         if (int_num < 0 || int_num >= NumInterruptLevels)
             panic("int_num out of bounds for fun CLEAR%d\n",int_num);
         interrupts[int_num] = 0;
@@ -93,16 +97,23 @@ class Interrupts : public BaseInterrupts
     bool
     checkInterrupts()
     {
+        inner_counter++;
         Msr msr = tc->readIntReg(INTREG_MSR);
-        tc->setIntReg(INTREG_TB , tc->readIntReg(INTREG_TB)+1);
-        tc->setIntReg(INTREG_TBU , tc->readIntReg(INTREG_TB) >> 32);
-        tc->setIntReg(INTREG_TBL , tc->readIntReg(INTREG_TB));
-        if (tc->readIntReg(INTREG_DEC) != 0)
-            tc->setIntReg(INTREG_DEC , tc->readIntReg(INTREG_DEC)-1);
-        else {
-            tc->setIntReg(INTREG_DEC, 0xffffffffU);
-            post(Decrementer, 0);
+
+        if (inner_counter % timebase_divider == 0) {
+            tc->setIntReg(INTREG_TB , tc->readIntReg(INTREG_TB) + 1);
+            tc->setIntReg(INTREG_VTB , tc->readIntReg(INTREG_VTB) + 1);
+            tc->setIntReg(INTREG_TBU , tc->readIntReg(INTREG_TB) >> 32);
+            tc->setIntReg(INTREG_TBL , tc->readIntReg(INTREG_TB) & 0xffffffff);
+            tc->setIntReg(INTREG_TBU40 , tc->readIntReg(INTREG_TB) >> 24);
+            if (tc->readIntReg(INTREG_DEC) != 0)
+                tc->setIntReg(INTREG_DEC , tc->readIntReg(INTREG_DEC) - 1);
+            else {
+                tc->setIntReg(INTREG_DEC, 0xffffffffU);
+                post(Decrementer, 0);
+            }
         }
+
         if (msr.ee)
         {
             if (interrupts[2] == 1)
@@ -120,7 +131,7 @@ class Interrupts : public BaseInterrupts
     Fault
     getInterrupt()
     {
-        assert(checkInterrupts());
+        //assert(checkInterrupts());
         if (interrupts[Decrementer]) {
             clear(Decrementer,0);
             return std::make_shared<DecrementerInterrupt>();
@@ -144,7 +155,6 @@ class Interrupts : public BaseInterrupts
     void
     updateIntrInfo()
     {
-        //tc->setIntReg(INTREG_DEC , 0xffffffff);
     }
 };
 
