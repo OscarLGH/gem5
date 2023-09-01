@@ -191,11 +191,6 @@ def template StoreInitiateAcc {{
         %(ea_code)s;
 
         if (fault == NoFault) {
-            %(update_code)s;
-            %(op_wb)s;
-        }
-
-        if (fault == NoFault) {
             %(memacc_code)s;
         }
 
@@ -205,6 +200,11 @@ def template StoreInitiateAcc {{
                                      NULL) :
                     writeMemTimingBE(xc, traceData, Mem, EA, memAccessFlags,
                                      NULL);
+        }
+
+        if (fault == NoFault) {
+            %(update_code)s;
+            %(op_wb)s;
         }
 
         return fault;
@@ -222,12 +222,6 @@ def template StoreCompleteAcc {{
         %(op_decl)s;
         EA = pkt->req->getVaddr();
         %(op_rd)s;
-
-        // Need to write back any potential address register update
-        if (fault == NoFault) {
-            %(update_code)s;
-            %(op_wb)s;
-        }
 
         return fault;
     }

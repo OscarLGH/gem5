@@ -742,27 +742,8 @@ decode PO default Unknown::unknown() {
         // These instructions all provide data cache hints
         // Right now doesn't have cache support
         format MiscOp {
-            278: dcbt({{ }});
-            246: dcbtst({{ }});
-
-            1014: dcbz({{
-                  Request::Flags flags = Request::PHYSICAL;
-                  Addr EA;
-                  if(RA == 0)
-                    EA = Rb & -128ULL;
-                  else
-                    EA = (Ra + Rb) & -128ULL;
-                  Mem = 0;
-                  for (int i = 0; i < 16; ++i) {
-                    writeMemAtomicLE(xc, traceData, Mem,EA + i*8,
-                                            flags, NULL);
-                }
-            }});
-
-            86: dcbf({{ }});
             598: sync({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
             854: eieio({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
-            54:  dcbst({{ }});
             982: icbi({{ }});
             306: tlbie({{ }});
             274: tlbiel({{ }});
@@ -771,6 +752,44 @@ decode PO default Unknown::unknown() {
         }
         //599: LoadIndexOp::lfdx({{ Ft = Mem_df; }});
         //631: LoadIndexUpdateOp::lfdux({{ Ft = Mem_df; }});
+
+        1014: StoreIndexOp::dcbz({{
+                Request::Flags flags = Request::PHYSICAL;
+                Addr EA;
+                if(RA == 0)
+                EA = Rb & -128ULL;
+                else
+                EA = (Ra + Rb) & -128ULL;
+                Mem = 0;
+        }});
+
+        format LoadIndexOp {
+            278: dcbt({{
+                if (fault == NoFault) {
+                    Mem;
+                }
+                fault = NoFault;
+            }});
+            246: dcbtst({{
+                if (fault == NoFault) {
+                    Mem;
+                }
+                fault = NoFault;
+            }});
+            86: dcbf({{
+                if (fault == NoFault) {
+                    Mem;
+                }
+                fault = NoFault;
+            }});
+            54:  dcbst({{
+                if (fault == NoFault) {
+                    Mem;
+                }
+                fault = NoFault;
+            }});
+        }
+
 
         format StoreIndexOp {
             660: stdbrx({{ Mem = swap_byte(Rs); }});
