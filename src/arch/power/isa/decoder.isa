@@ -409,7 +409,8 @@ decode PO default Unknown::unknown() {
 
         format LoadIndexOp {
             20: lwarx({{ Rt = Mem_uw; }},
-                      {{ Rsv = 1; RsvLen = 4; RsvAddr = EA; }});
+                      {{ Rsv = 1; RsvLen = 4; RsvAddr = EA; }},
+                      mem_flags=LLSC);
 
             21: ldx({{ Rt = Mem; }});
             23: lwzx({{ Rt = Mem_uw; }});
@@ -447,7 +448,8 @@ decode PO default Unknown::unknown() {
         }});
 
         52: LoadIndexOp::lbarx({{ Rt = Mem_ub; }},
-                               {{ Rsv = 1; RsvLen = 1; RsvAddr = EA; }});
+                               {{ Rsv = 1; RsvLen = 1; RsvAddr = EA; }},
+                               mem_flags=LLSC);
 
         53: LoadIndexUpdateOp::ldux({{ Rt = Mem; }});
         55: LoadIndexUpdateOp::lwzux({{ Rt = Mem_uw; }});
@@ -461,12 +463,14 @@ decode PO default Unknown::unknown() {
 
         format LoadIndexOp {
             84: ldarx({{ Rt = Mem_ud; }},
-                      {{ Rsv = 1; RsvLen = 8; RsvAddr = EA; }});
+                      {{ Rsv = 1; RsvLen = 8; RsvAddr = EA; }},
+                      mem_flags=LLSC);
 
             87: lbzx({{ Rt = Mem_ub; }});
 
             116: lharx({{ Rt = Mem_uh;}},
-                       {{  Rsv = 1; RsvLen = 2; RsvAddr = EA; }});
+                       {{  Rsv = 1; RsvLen = 2; RsvAddr = EA; }},
+                       mem_flags=LLSC);
         }
 
         119: LoadIndexUpdateOp::lbzux({{ Rt = Mem_ub; }});
@@ -509,7 +513,7 @@ decode PO default Unknown::unknown() {
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
                 Rsv = 0;
-            }});
+            }}, mem_flags=LLSC, inst_flags=IsStoreConditional);
 
             151: stwx({{ Mem_uw = Rs_uw; }});
         }
@@ -570,7 +574,7 @@ decode PO default Unknown::unknown() {
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
                 Rsv = 0;
-            }});
+            }}, mem_flags=LLSC, inst_flags=IsStoreConditional);
 
             215: stbx({{ Mem_ub = Rs_ub; }});
         }
@@ -792,7 +796,7 @@ decode PO default Unknown::unknown() {
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
                 Rsv = 0;
-            }});
+            }}, mem_flags=LLSC, inst_flags=IsStoreConditional);
         }
 
         //695: StoreIndexUpdateOp::stfsux({{ Mem_sf = Fs_sf; }});
@@ -817,7 +821,7 @@ decode PO default Unknown::unknown() {
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
                 Rsv = 0;
-            }});
+            }}, mem_flags=LLSC, inst_flags=IsStoreConditional);
 
             //727: stfdx({{ Mem_df = Fs; }});
         }

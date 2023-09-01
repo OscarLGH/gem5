@@ -32,6 +32,8 @@
 #include "arch/power/types.hh"
 #include "base/trace.hh"
 #include "cpu/static_inst.hh"
+#include "mem/packet.hh"
+#include "mem/request.hh"
 
 namespace gem5
 {

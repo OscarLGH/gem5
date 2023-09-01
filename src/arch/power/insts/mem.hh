@@ -31,6 +31,8 @@
 #define __ARCH_POWER_MEM_HH__
 
 #include "arch/power/insts/static_inst.hh"
+#include "cpu/exec_context.hh"
+#include "cpu/static_inst.hh"
 
 namespace gem5
 {
@@ -46,7 +48,7 @@ class MemOp : public PowerStaticInst
   protected:
 
     /// Memory request flags.  See mem_req_base.hh.
-    unsigned memAccessFlags;
+    Request::Flags memAccessFlags;
 
     /// Constructor
     MemOp(const char *mnem, MachInst _machInst, OpClass __opClass)
