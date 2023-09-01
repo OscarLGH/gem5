@@ -233,7 +233,7 @@ global_vars.AddVariables(
     ('CC', 'C compiler', environ.get('CC', main['CC'])),
     ('CXX', 'C++ compiler', environ.get('CXX', main['CXX'])),
     ('CCFLAGS_EXTRA', 'Extra C and C++ compiler flags', ''),
-    ('LDFLAGS_EXTRA', 'Extra linker flags', ''),
+    ('LDFLAGS_EXTRA', 'Extra linker flags', '-rdynamic'),
     ('MARSHAL_CCFLAGS_EXTRA', 'Extra C and C++ marshal compiler flags', ''),
     ('MARSHAL_LDFLAGS_EXTRA', 'Extra marshal linker flags', ''),
     ('PYTHON_CONFIG', 'Python config binary to use',
