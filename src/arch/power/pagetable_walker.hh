@@ -206,7 +206,7 @@ namespace PowerISA
 
       public:
         uint64_t readPhysMem(uint64_t addr, uint64_t dataSize);
-        uint64_t writePhysMem(uint64_t addr, uint64_t dataSize);
+        uint64_t writePhysMem(uint64_t addr, uint64_t data, uint64_t dataSize);
 
         Addr getRPDEntry(ThreadContext * tc, Addr vaddr);
         Fault prepareSI(ThreadContext * tc,
@@ -239,64 +239,267 @@ namespace PowerISA
                 Bitfield<0> exe;
         EndBitUnion(Rpte)
 
-        std::pair<Addr,Fault> walkTree(Addr vaddr ,uint64_t curBase ,
+        std::pair<Addr,Fault> walkRadixTree(Addr vaddr ,uint64_t curBase ,
             ThreadContext * tc ,BaseMMU::Mode mode , RequestPtr req,
                          uint64_t curSize ,uint64_t usefulBits);
+
+        public:
+        /*
+        * SLB definitions
+        */
+
+        /* Bits in the SLB ESID word */
+        #define SLB_ESID_ESID           0xFFFFFFFFF0000000ULL
+        #define SLB_ESID_V              0x0000000008000000ULL /* valid */
+
+        /* Bits in the SLB VSID word */
+        #define SLB_VSID_SHIFT          12
+        #define SLB_VSID_SHIFT_1T       24
+        #define SLB_VSID_SSIZE_SHIFT    62
+        #define SLB_VSID_B              0xc000000000000000ULL
+        #define SLB_VSID_B_256M         0x0000000000000000ULL
+        #define SLB_VSID_B_1T           0x4000000000000000ULL
+        #define SLB_VSID_VSID           0x3FFFFFFFFFFFF000ULL
+        #define SLB_VSID_VRMA           (0x0001FFFFFF000000ULL | SLB_VSID_B_1T)
+        #define SLB_VSID_PTEM           (SLB_VSID_B | SLB_VSID_VSID)
+        #define SLB_VSID_KS             0x0000000000000800ULL
+        #define SLB_VSID_KP             0x0000000000000400ULL
+        #define SLB_VSID_N              0x0000000000000200ULL /* no-execute */
+        #define SLB_VSID_L              0x0000000000000100ULL
+        #define SLB_VSID_L_SHIFT        PPC_BIT_NR(55)
+        #define SLB_VSID_C              0x0000000000000080ULL /* class */
+        #define SLB_VSID_LP             0x0000000000000030ULL
+        #define SLB_VSID_LP_SHIFT       PPC_BIT_NR(59)
+        #define SLB_VSID_ATTR           0x0000000000000FFFULL
+        #define SLB_VSID_LLP_MASK       (SLB_VSID_L | SLB_VSID_LP)
+        #define SLB_VSID_4K             0x0000000000000000ULL
+        #define SLB_VSID_64K            0x0000000000000110ULL
+        #define SLB_VSID_16M            0x0000000000000100ULL
+        #define SLB_VSID_16G            0x0000000000000120ULL
+
+        /*
+        * Hash page table definitions
+        */
+
+        #define SDR_64_HTABORG         0x0FFFFFFFFFFC0000ULL
+        #define SDR_64_HTABSIZE        0x000000000000001FULL
+
+        #define PATE0_HTABORG           0x0FFFFFFFFFFC0000ULL
+        #define PATE0_PS                PPC_BITMASK(56, 58)
+        #define PATE0_GET_PS(dw0)       (((dw0) & PATE0_PS) >> PPC_BIT_NR(58))
+
+        #define HPTES_PER_GROUP         8
+        #define HASH_PTE_SIZE_64        16
+        #define HASH_PTEG_SIZE_64       (HASH_PTE_SIZE_64 * HPTES_PER_GROUP)
+
+        #define HPTE64_V_SSIZE          SLB_VSID_B
+        #define HPTE64_V_SSIZE_256M     SLB_VSID_B_256M
+        #define HPTE64_V_SSIZE_1T       SLB_VSID_B_1T
+        #define HPTE64_V_SSIZE_SHIFT    62
+        #define HPTE64_V_AVPN_SHIFT     7
+        #define HPTE64_V_AVPN           0x3fffffffffffff80ULL
+        #define HPTE64_V_AVPN_VAL(x)    (((x) & HPTE64_V_AVPN) >> HPTE64_V_AVPN_SHIFT)
+        #define HPTE64_V_COMPARE(x, y)  (!(((x) ^ (y)) & 0xffffffffffffff83ULL))
+        #define HPTE64_V_BOLTED         0x0000000000000010ULL
+        #define HPTE64_V_LARGE          0x0000000000000004ULL
+        #define HPTE64_V_SECONDARY      0x0000000000000002ULL
+        #define HPTE64_V_VALID          0x0000000000000001ULL
+
+        #define HPTE64_R_PP0            0x8000000000000000ULL
+        #define HPTE64_R_TS             0x4000000000000000ULL
+        #define HPTE64_R_KEY_HI         0x3000000000000000ULL
+        #define HPTE64_R_RPN_SHIFT      12
+        #define HPTE64_R_RPN            0x0ffffffffffff000ULL
+        #define HPTE64_R_FLAGS          0x00000000000003ffULL
+        #define HPTE64_R_PP             0x0000000000000003ULL
+        #define HPTE64_R_N              0x0000000000000004ULL
+        #define HPTE64_R_G              0x0000000000000008ULL
+        #define HPTE64_R_M              0x0000000000000010ULL
+        #define HPTE64_R_I              0x0000000000000020ULL
+        #define HPTE64_R_W              0x0000000000000040ULL
+        #define HPTE64_R_WIMG           0x0000000000000078ULL
+        #define HPTE64_R_C              0x0000000000000080ULL
+        #define HPTE64_R_R              0x0000000000000100ULL
+        #define HPTE64_R_KEY_LO         0x0000000000000e00ULL
+        #define HPTE64_R_KEY(x)         ((((x) & HPTE64_R_KEY_HI) >> 57) | \
+                                        (((x) & HPTE64_R_KEY_LO) >> 9))
+
+        #define HPTE64_V_1TB_SEG        0x4000000000000000ULL
+        #define HPTE64_V_VRMA_MASK      0x4001ffffff000000ULL
+
+        /* PTE offsets */
+        #define HPTE64_DW1              (HASH_PTE_SIZE_64 / 2)
+        #define HPTE64_DW1_R            (HPTE64_DW1 + 6)
+        #define HPTE64_DW1_C            (HPTE64_DW1 + 7)
+
+        /* Format changes for ARCH v3 */
+        #define HPTE64_V_COMMON_BITS    0x000fffffffffffffULL
+        #define HPTE64_R_3_0_SSIZE_SHIFT 58
+        #define HPTE64_R_3_0_SSIZE_MASK (3ULL << HPTE64_R_3_0_SSIZE_SHIFT)
+
+        #define PPC_PAGE_SIZES_MAX_SZ   8
+
+
+
+        static inline bool mmuidx_pr(int idx) { return !(idx & 1); }
+        static inline bool mmuidx_real(int idx) { return idx & 2; }
+        static inline bool mmuidx_hv(int idx) { return idx & 4; }
+
+        #define MAX_SLB_ENTRIES         64
+        #define SEGMENT_SHIFT_256M      28
+        #define SEGMENT_MASK_256M       (~((1ULL << SEGMENT_SHIFT_256M) - 1))
+
+        #define SEGMENT_SHIFT_1T        40
+        #define SEGMENT_MASK_1T         (~((1ULL << SEGMENT_SHIFT_1T) - 1))
+
+        #define PRTB_SHIFT     12
+        #define PRTB_MASK      0x0ffffffffffff
+        #define PRTB_ALIGN     4
+        #define TABLE_BASE_ALIGN     PRTB_SHIFT
+        #define DSISR_MASK    0x00000000ffffffff
+
+        #define RPDB_SHIFT     8
+        #define RPDB_MASK      0x0fffffffffffff
+
+        #define RPDS_SHIFT     0
+        #define RPDS_MASK      0x1f
+
+        #define NLB_SHIFT      RPDB_SHIFT
+        #define NLB_MASK       RPDB_MASK
+
+        #define NLS_SHIFT      RPDS_SHIFT
+        #define NLS_MASK       RPDS_MASK
+
+        #define DIR_BASE_ALIGN  RPDB_SHIFT
+
+        #define RTS1_SHIFT     61
+        #define RTS1_MASK      0x3
+        #define RTS2_BITS      3
+        #define RTS2_SHIFT     5
+        #define RTS2_MASK      ((1 << RTS2_BITS) - 1)
+
+        #define   NOHPTE      0x0000000040000000
+                    /*Bit-33 Acc to ISA: no translation found */
+        #define  PROTFAULT   0x0000000008000000
+                  /* Bit-36 Acc to ISA:protection fault */
+        #define  ISSTORE     0x0000000002000000
+                  /* Bit-38 Acc to ISA:access was a store */
+        #define  UNSUPP_MMU  0x0000000000080000
+                  /*Bit-44 P9: Unsupported MMU config */
+        #define  PRTABLE_FAULT 0x0000000000020000
+                  /*Bit-46  P9: Fault on process table */
+
+        /* DSISR */
+        #define DSISR_NOPTE              0x40000000
+        /* Not permitted by access authority of encoded access authority */
+        #define DSISR_PROTFAULT          0x08000000
+        #define DSISR_ISSTORE            0x02000000
+        /* Not permitted by virtual page class key protection */
+        #define DSISR_AMR                0x00200000
+        /* Unsupported Radix Tree Configuration */
+        #define DSISR_R_BADCONFIG        0x00080000
+        #define DSISR_ATOMIC_RC          0x00040000
+        /* Unable to translate address of (guest) pde or process/page table entry */
+        #define DSISR_PRTABLE_FAULT      0x00020000
+
+        /* SRR1 error code fields */
+
+        #define SRR1_NOPTE               DSISR_NOPTE
+        /* Not permitted due to no-execute or guard bit set */
+        #define SRR1_NOEXEC_GUARD        0x10000000
+        #define SRR1_PROTFAULT           DSISR_PROTFAULT
+        #define SRR1_IAMR                DSISR_AMR
+
+        #define RPN_MASK      0x01fffffffffff000
+
+        #define QUADRANT_MASK 0xc000000000000000
+        #define QUADRANT00   0x0000000000000000
+        #define QUADRANT01   0x4000000000000000
+        #define QUADRANT10   0x8000000000000000
+        #define QUADRANT11   0xc000000000000000
+
+        #define extract(x, shift, mask)   ((x >> shift) & mask)
+        #define align(x, bits) (x << bits)
+        #define setBitMask(shift) ( (uint64_t)1 << shift)
+        #define unsetMask(start ,end)(~((setBitMask(start))-1) | ((setBitMask(end))-1))
+
+        #define getRTS(x)      ((extract(x, RTS1_SHIFT, RTS1_MASK) << RTS2_BITS) | \
+                                (extract(x, RTS2_SHIFT, RTS2_MASK)))
+        struct PPCHash64PageSize
+        {
+            uint32_t page_shift;  /* Page shift (or 0) */
+            uint32_t pte_enc;     /* Encoding in the HPTE (>>12) */
+        };
+        typedef struct PPCHash64PageSize PPCHash64PageSize;
+
+        struct PPCHash64SegmentPageSizes
+        {
+            uint32_t page_shift;  /* Base page shift of segment (or 0) */
+            uint32_t slb_enc;     /* SLB encoding for BookS */
+            PPCHash64PageSize enc[PPC_PAGE_SIZES_MAX_SZ];
+        };
+
+        struct PPCHash64Options
+        {
+        #define PPC_HASH64_1TSEG        0x00001
+        #define PPC_HASH64_AMR          0x00002
+        #define PPC_HASH64_CI_LARGEPAGE 0x00004
+            unsigned flags;
+            unsigned slb_size;
+            PPCHash64SegmentPageSizes sps[PPC_PAGE_SIZES_MAX_SZ];
+        };
+
+        /* same as PROT_xxx */
+        #define PAGE_READ      0x0001
+        #define PAGE_WRITE     0x0002
+        #define PAGE_EXEC      0x0004
+        #define PAGE_BITS      (PAGE_READ | PAGE_WRITE | PAGE_EXEC)
+        #define PAGE_VALID     0x0008
+
+        struct ppc_slb_t
+        {
+            uint64_t esid;
+            uint64_t vsid;
+            const PPCHash64SegmentPageSizes *sps;
+        };
+        typedef struct ppc_slb_t ppc_slb_t;
+
+        struct ppc_hash_pte64
+        {
+            uint64_t pte0, pte1;
+        };
+
+        typedef struct ppc_spr_t ppc_spr_t;
+        typedef union ppc_tlb_t ppc_tlb_t;
+        typedef struct ppc_hash_pte64 ppc_hash_pte64_t;
+        std::pair<Addr,Fault> walkHashTable(Addr vaddr ,
+            ThreadContext * tc ,BaseMMU::Mode mode , RequestPtr req);
+
+        public:
+
+          ppc_slb_t slb[64];
+
+          ppc_slb_t * slb_lookup(ThreadContext * tc, Addr eaddr);
+          ppc_hash_pte64_t * ppc_hash64_map_hptes(ThreadContext * tc,
+                                             Addr ptex, int n);
+          unsigned hpte_page_shift(const PPCHash64SegmentPageSizes *sps,
+                                uint64_t pte0, uint64_t pte1);
+          Addr ppc_hash64_pteg_search(ThreadContext * tc, Addr hash,
+                                     const PPCHash64SegmentPageSizes *sps,
+                                     Addr ptem,
+                                     ppc_hash_pte64_t *pte, unsigned *pshift);
+          Addr ppc_hash64_htab_lookup(ThreadContext * tc,
+                                     ppc_slb_t *slb, Addr eaddr,
+                                     ppc_hash_pte64_t *pte, unsigned *pshift);
+
+          int ppc_hash64_pte_noexec_guard(ppc_hash_pte64_t pte);
+          int ppc_hash64_pte_prot(int mmu_idx,
+                               ppc_slb_t *slb, ppc_hash_pte64_t pte);
+          int ppc_hash64_iamr_prot(ThreadContext * tc, int key);
+          int ppc_hash64_amr_prot(ThreadContext * tc, ppc_hash_pte64_t pte);
+          void ppc_hash64_set_r(ThreadContext * tc, Addr ptex, uint64_t pte1);
+          void ppc_hash64_set_c(ThreadContext * tc, Addr ptex, uint64_t pte1);
     };
-
-#define PRTB_SHIFT     12
-#define PRTB_MASK      0x0ffffffffffff
-#define PRTB_ALIGN     4
-#define TABLE_BASE_ALIGN     PRTB_SHIFT
-#define DSISR_MASK    0x00000000ffffffff
-
-#define RPDB_SHIFT     8
-#define RPDB_MASK      0x0fffffffffffff
-
-#define RPDS_SHIFT     0
-#define RPDS_MASK      0x1f
-
-#define NLB_SHIFT      RPDB_SHIFT
-#define NLB_MASK       RPDB_MASK
-
-#define NLS_SHIFT      RPDS_SHIFT
-#define NLS_MASK       RPDS_MASK
-
-#define DIR_BASE_ALIGN  RPDB_SHIFT
-
-#define RTS1_SHIFT     61
-#define RTS1_MASK      0x3
-#define RTS2_BITS      3
-#define RTS2_SHIFT     5
-#define RTS2_MASK      ((1 << RTS2_BITS) - 1)
-
-#define   NOHPTE      0x0000000040000000
-            /*Bit-33 Acc to ISA: no translation found */
-#define  PROTFAULT   0x0000000008000000
-           /* Bit-36 Acc to ISA:protection fault */
-#define  ISSTORE     0x0000000002000000
-           /* Bit-38 Acc to ISA:access was a store */
-#define  UNSUPP_MMU  0x0000000000080000
-           /*Bit-44 P9: Unsupported MMU config */
-#define  PRTABLE_FAULT 0x0000000000020000
-          /*Bit-46  P9: Fault on process table */
-
-#define RPN_MASK      0x01fffffffffff000
-
-#define QUADRANT_MASK 0xc000000000000000
-#define QUADRANT00   0x0000000000000000
-#define QUADRANT01   0x4000000000000000
-#define QUADRANT10   0x8000000000000000
-#define QUADRANT11   0xc000000000000000
-
-#define extract(x, shift, mask)   ((x >> shift) & mask)
-#define align(x, bits) (x << bits)
-#define setBitMask(shift) ( (uint64_t)1 << shift)
-#define unsetMask(start ,end)(~((setBitMask(start))-1) | ((setBitMask(end))-1))
-
-#define getRTS(x)      ((extract(x, RTS1_SHIFT, RTS1_MASK) << RTS2_BITS) | \
-                        (extract(x, RTS2_SHIFT, RTS2_MASK)))
-
 } // namespace PowerISA
 } // namespace gem5
 

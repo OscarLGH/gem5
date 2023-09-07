@@ -88,7 +88,7 @@ Walker::readPhysMem(uint64_t addr, uint64_t dataSize)
 }
 
 uint64_t
-Walker::writePhysMem(uint64_t addr, uint64_t dataSize)
+Walker::writePhysMem(uint64_t addr, uint64_t data, uint64_t dataSize)
 {
     uint64_t ret;
     Request::Flags flags = Request::PHYSICAL;
@@ -97,6 +97,7 @@ Walker::writePhysMem(uint64_t addr, uint64_t dataSize)
         std::make_shared<Request>(addr, dataSize, flags, this->requestorId);
     Packet *write = new Packet(request, MemCmd::WriteReq);
     write->allocate();
+    write->setBE<uint64_t>(data);
     this->port.sendAtomic(write);
     ret = write->getLE<uint64_t>();
 
@@ -222,7 +223,7 @@ Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
       return AddrTran.second;
     }
 
-    AddrTran = this->walkTree(vaddr, nextLevelBase, _tc, _mode, _req,
+    AddrTran = this->walkRadixTree(vaddr, nextLevelBase, _tc, _mode, _req,
                                 nextLevelSize, usefulBits);
     _req->setPaddr(AddrTran.first);
     if (AddrTran.second == NoFault) {
@@ -391,7 +392,7 @@ Walker::getRPDEntry(ThreadContext * tc, Addr vaddr)
 }
 
 std::pair<Addr, Fault>
-Walker::walkTree(Addr vaddr ,uint64_t curBase ,ThreadContext * tc ,
+Walker::walkRadixTree(Addr vaddr ,uint64_t curBase ,ThreadContext * tc ,
     BaseMMU::Mode mode , RequestPtr req, uint64_t curSize ,uint64_t usefulBits)
 {
         uint64_t dataSize = 8;
@@ -533,7 +534,7 @@ Walker::walkTree(Addr vaddr ,uint64_t curBase ,ThreadContext * tc ,
                 rpte.c = 1;
             }
             htobe<uint64_t>(rpte);
-            this->writePhysMem(rpte, dataSize);
+            this->writePhysMem(entryAddr, rpte, dataSize);
 
           return AddrTran;
         }
@@ -543,8 +544,560 @@ Walker::walkTree(Addr vaddr ,uint64_t curBase ,ThreadContext * tc ,
         DPRINTF(PageTableWalker,"NLB: 0x%lx\n",(uint64_t)nextLevelBase);
         DPRINTF(PageTableWalker,"NLS: 0x%lx\n",(uint64_t)nextLevelSize);
         DPRINTF(PageTableWalker,"usefulBits: %lx",(uint64_t)usefulBits);
-        return walkTree(vaddr, nextLevelBase, tc ,
+        return walkRadixTree(vaddr, nextLevelBase, tc ,
                               mode, req, nextLevelSize, usefulBits);
+}
+
+/*
+ * SLB handling
+ */
+
+Walker::ppc_slb_t * Walker::slb_lookup(ThreadContext * tc, Addr eaddr)
+{
+    uint64_t esid_256M, esid_1T;
+    int n;
+
+    esid_256M = (eaddr & SEGMENT_MASK_256M) | SLB_ESID_V;
+    esid_1T = (eaddr & SEGMENT_MASK_1T) | SLB_ESID_V;
+
+    int slb_size = 64;
+
+    for (n = 0; n < slb_size; n++) {
+        ppc_slb_t *slb = &slb[n]; //&env->slb[n]; //TODO
+
+        /*
+         * We check for 1T matches on all MMUs here - if the MMU
+         * doesn't have 1T segment support, we will have prevented 1T
+         * entries from being inserted in the slbmte code.
+         */
+        if (((slb->esid == esid_256M) &&
+             ((slb->vsid & SLB_VSID_B) == SLB_VSID_B_256M))
+            || ((slb->esid == esid_1T) &&
+                ((slb->vsid & SLB_VSID_B) == SLB_VSID_B_1T))) {
+            return slb;
+        }
+    }
+
+    return NULL;
+}
+
+static inline Addr ppc_hash64_hpt_base(ThreadContext * tc)
+{
+    uint64_t base = tc->readIntReg(INTREG_ASDR);
+    return base & SDR_64_HTABORG;
+}
+
+static inline Addr ppc_hash64_hpt_mask(ThreadContext * tc)
+{
+    uint64_t base = tc->readIntReg(INTREG_ASDR);
+
+/*
+    if (cpu->vhyp) {
+        PPCVirtualHypervisorClass *vhc =
+            PPC_VIRTUAL_HYPERVISOR_GET_CLASS(cpu->vhyp);
+        return vhc->hpt_mask(cpu->vhyp);
+    }
+*/
+
+    return (1ULL << ((base & SDR_64_HTABSIZE) + 18 - 7)) - 1;
+}
+
+uint64_t ppc_hash64_hpte0(const Walker::ppc_hash_pte64_t *hptes, int i)
+{
+    return betoh((uint64_t)&(hptes[i].pte0));
+}
+
+uint64_t ppc_hash64_hpte1(const Walker::ppc_hash_pte64_t *hptes, int i)
+{
+    return betoh((uint64_t)&(hptes[i].pte1));
+}
+
+Walker::ppc_hash_pte64_t * Walker::ppc_hash64_map_hptes(ThreadContext * tc,
+                                             Addr ptex, int n)
+{
+    Addr pte_offset = ptex * HASH_PTE_SIZE_64;
+    Addr base;
+    Addr plen = n * HASH_PTE_SIZE_64;
+    ppc_hash_pte64_t *hptes;
+
+    base = ppc_hash64_hpt_base(tc);
+
+    if (!base) {
+        return NULL;
+    }
+
+    hptes = new ppc_hash_pte64_t[32];
+
+    for (int i = 0; i < n; i++) {
+        hptes[i].pte0 = readPhysMem(base + pte_offset, 8);
+        hptes[i].pte1 = readPhysMem(base + pte_offset + 8, 8);
+    }
+
+    return hptes;
+}
+
+unsigned Walker::hpte_page_shift(const PPCHash64SegmentPageSizes *sps,
+                                uint64_t pte0, uint64_t pte1)
+{
+    int i;
+
+    if (!(pte0 & HPTE64_V_LARGE)) {
+        if (sps->page_shift != 12) {
+            /* 4kiB page in a non 4kiB segment */
+            return 0;
+        }
+        /* Normal 4kiB page */
+        return 12;
+    }
+
+    for (i = 0; i < PPC_PAGE_SIZES_MAX_SZ; i++) {
+        const PPCHash64PageSize *ps = &sps->enc[i];
+        uint64_t mask;
+
+        if (!ps->page_shift) {
+            break;
+        }
+
+        if (ps->page_shift == 12) {
+            /* L bit is set so this can't be a 4kiB page */
+            continue;
+        }
+
+        mask = ((1ULL << ps->page_shift) - 1) & HPTE64_R_RPN;
+
+        if ((pte1 & mask) == ((uint64_t)ps->pte_enc << HPTE64_R_RPN_SHIFT)) {
+            return ps->page_shift;
+        }
+    }
+
+    return 0; /* Bad page size encoding */
+}
+
+
+Addr Walker::ppc_hash64_pteg_search(ThreadContext * tc, Addr hash,
+                                     const PPCHash64SegmentPageSizes *sps,
+                                     Addr ptem,
+                                     ppc_hash_pte64_t *pte, unsigned *pshift)
+{
+    int i;
+    const ppc_hash_pte64_t *pteg;
+    Addr pte0, pte1;
+    Addr ptex;
+
+    ptex = (hash & ppc_hash64_hpt_mask(tc)) * HPTES_PER_GROUP;
+    pteg = ppc_hash64_map_hptes(tc, ptex, HPTES_PER_GROUP);
+    if (!pteg) {
+        return -1;
+    }
+    for (i = 0; i < HPTES_PER_GROUP; i++) {
+        pte0 = ppc_hash64_hpte0(pteg, i);
+        /*
+         * pte0 contains the valid bit and must be read before pte1,
+         * otherwise we might see an old pte1 with a new valid bit and
+         * thus an inconsistent hpte value
+         */
+
+        pte1 = ppc_hash64_hpte1(pteg, i);
+
+        /* This compares V, B, H (secondary) and the AVPN */
+        if (HPTE64_V_COMPARE(pte0, ptem)) {
+            *pshift = hpte_page_shift(sps, pte0, pte1);
+            /*
+             * If there is no match, ignore the PTE, it could simply
+             * be for a different segment size encoding and the
+             * architecture specifies we should not match. Linux will
+             * potentially leave behind PTEs for the wrong base page
+             * size when demoting segments.
+             */
+            if (*pshift == 0) {
+                continue;
+            }
+            /*
+             * We don't do anything with pshift yet as qemu TLB only
+             * deals with 4K pages anyway
+             */
+            pte->pte0 = pte0;
+            pte->pte1 = pte1;
+
+            return ptex + i;
+        }
+    }
+    delete pteg;
+    /*
+     * We didn't find a valid entry.
+     */
+    return -1;
+}
+
+Addr Walker::ppc_hash64_htab_lookup(ThreadContext *tc,
+                                     ppc_slb_t *slb, Addr eaddr,
+                                     ppc_hash_pte64_t *pte, unsigned *pshift)
+{
+    Addr hash, ptex;
+    uint64_t vsid, epnmask, epn, ptem;
+    const PPCHash64SegmentPageSizes *sps = slb->sps;
+
+    /*
+     * The SLB store path should prevent any bad page size encodings
+     * getting in there, so:
+     */
+    assert(sps);
+
+    Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+
+    /* If ISL is set in LPCR we need to clamp the page size to 4K */
+    // if (lpcr & LPCR_ISL) {
+    //     /* We assume that when using TCG, 4k is first entry of SPS */
+    //     sps = &cpu->hash64_opts->sps[0];
+    //     assert(sps->page_shift == 12);
+    // }
+
+    epnmask = ~((1ULL << sps->page_shift) - 1);
+
+    if (slb->vsid & SLB_VSID_B) {
+        /* 1TB segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT_1T;
+        epn = (eaddr & ~SEGMENT_MASK_1T) & epnmask;
+        hash = vsid ^ (vsid << 25) ^ (epn >> sps->page_shift);
+    } else {
+        /* 256M segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT;
+        epn = (eaddr & ~SEGMENT_MASK_256M) & epnmask;
+        hash = vsid ^ (epn >> sps->page_shift);
+    }
+    ptem = (slb->vsid & SLB_VSID_PTEM) | ((epn >> 16) & HPTE64_V_AVPN);
+    ptem |= HPTE64_V_VALID;
+
+    /* Page address translation */
+    DPRINTF(PageTableWalker,
+            "htab_base " "%llx" " htab_mask " "%llx"
+            " hash " "%llx" "\n",
+            ppc_hash64_hpt_base(tc), ppc_hash64_hpt_mask(tc), hash);
+
+    /* Primary PTEG lookup */
+    DPRINTF(PageTableWalker,
+            "0 htab=" "%llx" "/" "%llx"
+            " vsid=" "%llx" " ptem=" "%llx"
+            " hash=" "%llx" "\n",
+            ppc_hash64_hpt_base(tc), ppc_hash64_hpt_mask(tc),
+            vsid, ptem,  hash);
+    ptex = ppc_hash64_pteg_search(tc, hash, sps, ptem, pte, pshift);
+
+    if (ptex == -1) {
+        /* Secondary PTEG lookup */
+        ptem |= HPTE64_V_SECONDARY;
+        DPRINTF(PageTableWalker,
+                "1 htab=" "%llx" "/" "%llx"
+                " vsid=" "%llx" " api=" "%llx"
+                " hash=" "%llx" "\n", ppc_hash64_hpt_base(tc),
+                ppc_hash64_hpt_mask(tc), vsid, ptem, ~hash);
+
+        ptex = ppc_hash64_pteg_search(tc, ~hash, sps, ptem, pte, pshift);
+    }
+
+    return ptex;
+}
+
+/* Check No-Execute or Guarded Storage */
+int Walker::ppc_hash64_pte_noexec_guard(ppc_hash_pte64_t pte)
+{
+    /* Exec permissions CANNOT take away read or write permissions */
+    return (pte.pte1 & HPTE64_R_N) || (pte.pte1 & HPTE64_R_G) ?
+            PAGE_READ | PAGE_WRITE : PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+}
+
+/* Check Basic Storage Protection */
+int Walker::ppc_hash64_pte_prot(int mmu_idx,
+                               ppc_slb_t *slb, ppc_hash_pte64_t pte)
+{
+    unsigned pp, key;
+    /*
+     * Some pp bit combinations have undefined behaviour, so default
+     * to no access in those cases
+     */
+    int prot = 0;
+
+    key = !!(mmuidx_pr(mmu_idx) ? (slb->vsid & SLB_VSID_KP)
+             : (slb->vsid & SLB_VSID_KS));
+    pp = (pte.pte1 & HPTE64_R_PP) | ((pte.pte1 & HPTE64_R_PP0) >> 61);
+
+    if (key == 0) {
+        switch (pp) {
+        case 0x0:
+        case 0x1:
+        case 0x2:
+            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+            break;
+
+        case 0x3:
+        case 0x6:
+            prot = PAGE_READ | PAGE_EXEC;
+            break;
+        }
+    } else {
+        switch (pp) {
+        case 0x0:
+        case 0x6:
+            break;
+
+        case 0x1:
+        case 0x3:
+            prot = PAGE_READ | PAGE_EXEC;
+            break;
+
+        case 0x2:
+            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+            break;
+        }
+    }
+
+    return prot;
+}
+
+/* Check the instruction access permissions specified in the IAMR */
+int Walker::ppc_hash64_iamr_prot(ThreadContext * tc, int key)
+{
+    uint64_t iamr = tc->readIntReg(INTREG_IAMR);
+    int iamr_bits = (iamr >> 2 * (31 - key)) & 0x3;
+
+    /*
+     * An instruction fetch is permitted if the IAMR bit is 0.
+     * If the bit is set, return PAGE_READ | PAGE_WRITE because this bit
+     * can only take away EXEC permissions not READ or WRITE permissions.
+     * If bit is cleared return PAGE_READ | PAGE_WRITE | PAGE_EXEC since
+     * EXEC permissions are allowed.
+     */
+    return (iamr_bits & 0x1) ? PAGE_READ | PAGE_WRITE :
+                               PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+}
+
+int Walker::ppc_hash64_amr_prot(ThreadContext * tc, ppc_hash_pte64_t pte)
+{
+    int key, amrbits;
+    int prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+
+    uint64_t amr = tc->readIntReg(INTREG_AMR);
+
+    key = HPTE64_R_KEY(pte.pte1);
+    amrbits = (amr >> 2 * (31 - key)) & 0x3;
+
+    /* fprintf(stderr, "AMR protection: key=%d AMR=0x%" PRIx64 "\n", key, */
+    /*         env->spr[SPR_AMR]); */
+
+    /*
+     * A store is permitted if the AMR bit is 0. Remove write
+     * protection if it is set.
+     */
+    if (amrbits & 0x2) {
+        prot &= ~PAGE_WRITE;
+    }
+    /*
+     * A load is permitted if the AMR bit is 0. Remove read
+     * protection if it is set.
+     */
+    if (amrbits & 0x1) {
+        prot &= ~PAGE_READ;
+    }
+
+    /*
+     * MMU version 2.07 and later support IAMR
+     * Check if the IAMR allows the instruction access - it will return
+     * PAGE_EXEC if it doesn't (and thus that bit will be cleared) or 0
+     * if it does (and prot will be unchanged indicating execution support).
+     */
+    prot &= ppc_hash64_iamr_prot(tc, key);
+
+    return prot;
+}
+
+static inline uint64_t deposit64(uint64_t value, int start, int length,
+                                 uint64_t fieldval)
+{
+    uint64_t mask;
+    assert(start >= 0 && length > 0 && length <= 64 - start);
+    mask = (~0ULL >> (64 - length)) << start;
+    return (value & ~mask) | ((fieldval << start) & mask);
+}
+
+static inline int prot_for_access_type(BaseMMU::Mode mode)
+{
+    switch (mode) {
+    case BaseMMU::Execute:
+        return PAGE_EXEC;
+    case BaseMMU::Read:
+        return PAGE_READ;
+    case BaseMMU::Write:
+        return PAGE_WRITE;
+    }
+}
+
+void Walker::ppc_hash64_set_r(ThreadContext * tc, Addr ptex, uint64_t pte1)
+{
+    Addr base, offset = ptex * HASH_PTE_SIZE_64 + HPTE64_DW1_R;
+
+    base = ppc_hash64_hpt_base(tc);
+
+
+    /* The HW performs a non-atomic byte update */
+    //stb_phys(CPU(cpu)->as, base + offset, ((pte1 >> 8) & 0xff) | 0x01);
+    writePhysMem(base + offset, ((pte1 >> 8) & 0xff) | 0x01, 1);
+}
+
+void Walker::ppc_hash64_set_c(ThreadContext * tc, Addr ptex, uint64_t pte1)
+{
+    Addr base, offset = ptex * HASH_PTE_SIZE_64 + HPTE64_DW1_C;
+
+    base = ppc_hash64_hpt_base(tc);
+
+    /* The HW performs a non-atomic byte update */
+    //stb_phys(CPU(cpu)->as, base + offset, (pte1 & 0xff) | 0x80);
+    writePhysMem(base + offset, (pte1 & 0xff) | 0x80, 1);
+}
+
+std::pair<Addr, Fault>
+Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
+    BaseMMU::Mode mode , RequestPtr req)
+{
+    ppc_slb_t vrma_slbe;
+    ppc_slb_t *slb;
+    unsigned apshift;
+    Addr ptex;
+    ppc_hash_pte64_t pte;
+    int exec_prot, pp_prot, amr_prot, prot;
+    int need_prot;
+    Addr raddr;
+
+    int mmu_idx = 0;
+
+    std::pair<Addr, Fault> AddrTran;
+
+    Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+    Msr msr = tc->readIntReg(INTREG_MSR);
+
+    /*
+     * Note on LPCR usage: 970 uses HID4, but our special variant of
+     * store_spr copies relevant fields into env->spr[SPR_LPCR].
+     * Similarly we filter unimplemented bits when storing into LPCR
+     * depending on the MMU version. This code can thus just use the
+     * LPCR "as-is".
+     */
+
+    /* 1. Handle real mode accesses */
+
+    /* 2. Translation is on, so look up the SLB */
+    slb = slb_lookup(tc, vaddr);
+    if (!slb) {
+        /* No entry found, check if in-memory segment tables are in use */
+
+        /* Segment still not found, generate the appropriate interrupt */
+        AddrTran.first = vaddr;
+        if (lpcr.hr == 0) {
+            AddrTran.second = prepareSI(tc, req, mode,
+                    PRTABLE_FAULT);
+            DPRINTF(PageTableWalker,
+            "Fault generated due to invalid pt entry\n");
+        }
+        else if (msr.dr == 1 || msr.ir == 1) {
+            AddrTran.second = prepareSI(tc, req, mode, NOHPTE);
+            DPRINTF(PageTableWalker,
+            "Fault due to translation not found\n");
+        }
+    }
+
+ skip_slb_search:
+
+    /* 3. Check for segment level no-execute violation */
+    if (mode == BaseMMU::Execute && (slb->vsid & SLB_VSID_N)) {
+        AddrTran.second = prepareSI(tc, req, mode, PRTABLE_FAULT);
+        return AddrTran;
+    }
+
+    /* 4. Locate the PTE in the hash table */
+    ptex = ppc_hash64_htab_lookup(tc, slb, vaddr, &pte, &apshift);
+    if (ptex == -1) {
+        if (mode == BaseMMU::Execute) {
+            AddrTran.second = prepareISI(tc, req, NOHPTE);
+        } else {
+            AddrTran.second = prepareDSI(tc, req, mode, NOHPTE);
+        }
+        return AddrTran;
+    }
+    DPRINTF(PageTableWalker,
+                  "found PTE at index %08" "%llx" "\n", ptex);
+
+    /* 5. Check access permissions */
+
+    exec_prot = ppc_hash64_pte_noexec_guard(pte);
+    pp_prot = ppc_hash64_pte_prot(mmu_idx, slb, pte);
+    amr_prot = ppc_hash64_amr_prot(tc, pte);
+    prot = exec_prot & pp_prot & amr_prot;
+
+    need_prot = prot_for_access_type(mode);
+    if (need_prot & ~prot) {
+        /* Access right violation */
+        DPRINTF(PageTableWalker, "PTE access rejected\n");
+
+        if (mode == BaseMMU::Execute) {
+            int srr1 = 0;
+            if (PAGE_EXEC & ~exec_prot) {
+                /* Access violates noexec or guard */
+                srr1 |= SRR1_NOEXEC_GUARD;
+            } else if (PAGE_EXEC & ~pp_prot) {
+                /* Access violates access authority */
+                srr1 |= SRR1_PROTFAULT;
+            }
+            if (PAGE_EXEC & ~amr_prot) {
+                /* Access violates virt pg class key prot */
+                srr1 |= SRR1_IAMR;
+            }
+            //ppc_hash64_set_isi(cs, mmu_idx, slb->vsid, srr1);
+            AddrTran.second = prepareISI(tc, req, srr1);
+        } else {
+            int dsisr = 0;
+            if (need_prot & ~pp_prot) {
+                dsisr |= DSISR_PROTFAULT;
+            }
+            if (mode == BaseMMU::Write) {
+                dsisr |= DSISR_ISSTORE;
+            }
+            if (need_prot & ~amr_prot) {
+                dsisr |= DSISR_AMR;
+            }
+            //ppc_hash64_set_dsi(cs, mmu_idx, slb->vsid, eaddr, dsisr);
+            AddrTran.second = prepareDSI(tc, req, mode, dsisr);
+        }
+        return AddrTran;
+    }
+
+    DPRINTF(PageTableWalker, "PTE access granted !\n");
+
+    /* 6. Update PTE referenced and changed bits if necessary */
+
+    if (!(pte.pte1 & HPTE64_R_R)) {
+        ppc_hash64_set_r(tc, ptex, pte.pte1);
+    }
+    if (!(pte.pte1 & HPTE64_R_C)) {
+        if (mode == BaseMMU::Write) {
+            ppc_hash64_set_c(tc, ptex, pte.pte1);
+        } else {
+            /*
+             * Treat the page as read-only for now, so that a later write
+             * will pass through this function again to set the C bit
+             */
+            prot &= ~PAGE_WRITE;
+        }
+    }
+
+    /* 7. Determine the real address from the PTE */
+
+    //*raddrp = deposit64(pte.pte1 & HPTE64_R_RPN, 0, apshift, vaddr);
+    //*protp = prot;
+    //*psizep = apshift;
+
+    AddrTran.second = NoFault;
+    AddrTran.first = deposit64(pte.pte1 & HPTE64_R_RPN, 0, apshift, vaddr);
+    DPRINTF(PageTableWalker,"paddr:0x%016lx\n",AddrTran.first);
+    return AddrTran;
 }
 
 Fault

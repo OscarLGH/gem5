@@ -43,6 +43,8 @@ output header {{
 #include "arch/power/insts/mem.hh"
 #include "arch/power/insts/misc.hh"
 #include "arch/power/insts/static_inst.hh"
+#include "arch/power/tlb.hh"
+#include "arch/power/pagetable_walker.hh"
 #include "cpu/static_inst.hh"
 #include "mem/packet.hh"
 

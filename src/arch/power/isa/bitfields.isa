@@ -47,6 +47,7 @@ def bitfield VX_XO         <10:0>;
 def bitfield VC_XO         <9:0>;
 def bitfield VX_8XO         <8:0>;                 // wwf
 def bitfield BF            <25:23>;
+def bitfield IH            <25:21>;
 def bitfield EO            <20:16>;
 def bitfield VX_UIM        <20:16>;
 def bitfield VX_SIM        <20:16>;

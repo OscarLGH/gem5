@@ -760,10 +760,18 @@ decode PO default Unknown::unknown() {
             854: eieio({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
             54:  dcbst({{ }});
             982: icbi({{ }});
-            306: tlbie({{ }});
+
+            306: tlbie({{ dynamic_cast<PowerISA::TLB *>(
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb[0];Rb}});
             274: tlbiel({{ }});
             566: tlbsync({{ }});
-            498: slbia({{ }});
+
+            434: IntLogicOp::slbie({{ Rb; }});
+            498: IntLogicOp::slbia({{ IH; }});
+            402: IntLogicOp::slbmte({{ Rs;Rb; }});
+            851: IntLogicOp::slbmfev({{ Rt;Rb; }});
+            915: IntLogicOp::slbmfee({{ Rt;Rb; }});
+            979: IntLogicOp::slbfee({{ Rt;Rb; }});
         }
         //599: LoadIndexOp::lfdx({{ Ft = Mem_df; }});
         //631: LoadIndexUpdateOp::lfdux({{ Ft = Mem_df; }});

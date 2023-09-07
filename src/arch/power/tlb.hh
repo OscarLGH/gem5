@@ -91,8 +91,6 @@ struct TlbEntry
     }
 };
 
-class Walker;
-
 class TLB : public BaseTLB
 {
   protected:
