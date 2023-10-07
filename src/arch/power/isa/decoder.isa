@@ -1336,6 +1336,10 @@ decode PO default Unknown::unknown() {
                 0x218: mtspr218({{ }});
                 0x398: mtspr398({{ }});
                 0x3b8: mtspr3b8({{ }});
+
+                0x320: mtsdr1({{ SDAR = Rs;}});
+                0x389: mtspr389({{ }});
+                0x3db: mtspr3db({{ }});
             }
 
             83: mfmsr({{ Rt = MSR; }}, [ IsPrivileged ]);

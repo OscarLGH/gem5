@@ -106,7 +106,8 @@ BareMetal::initState()
         // Setting TB register to 0
         tc->setIntReg(INTREG_TB , 0x0);
         //tc->setIntReg(INTREG_PVR , 0x004e1100);
-        tc->setIntReg(INTREG_PVR , 0x004e0200);
+        //tc->setIntReg(INTREG_PVR , 0x004e0200);
+        tc->setIntReg(INTREG_PVR , 0x004d0200); //power8
         tc->setIntReg(INTREG_MSR , msr);
         //ArgumentReg0 is initialized with 0xc00000 because in linux/system.cc
         //dtb is loaded at 0xc00000
