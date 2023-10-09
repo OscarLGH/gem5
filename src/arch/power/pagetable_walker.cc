@@ -184,7 +184,7 @@ uint32_t geteffPID(ThreadContext *tc, Addr vaddr)
 }
 
 
-Fault
+/* Fault
 Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
               const RequestPtr &_req, BaseMMU::Mode _mode)
 {
@@ -229,6 +229,27 @@ Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
     if (AddrTran.second == NoFault) {
 
       DPRINTF(PageTableWalker, "Radix Translated 0x%016lx -> 0x%016lx\n",
+      vaddr,AddrTran.first);
+    }
+    return AddrTran.second;
+} */
+
+Fault
+Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
+              const RequestPtr &_req, BaseMMU::Mode _mode)
+{
+    Addr vaddr = _req->getVaddr();
+    std::pair<Addr, Fault> AddrTran;
+
+    Lpcr lpcr = _tc->readIntReg(INTREG_LPCR);
+    Msr msr = _tc->readIntReg(INTREG_MSR);
+    AddrTran.first = vaddr;
+
+    AddrTran = this->walkHashTable(vaddr, _tc, _mode, _req);
+    _req->setPaddr(AddrTran.first);
+    if (AddrTran.second == NoFault) {
+
+      DPRINTF(PageTableWalker, "Hashtable Translated 0x%016lx -> 0x%016lx\n",
       vaddr,AddrTran.first);
     }
     return AddrTran.second;
@@ -557,14 +578,20 @@ Walker::ppc_slb_t * Walker::slb_lookup(ThreadContext * tc, Addr eaddr)
     uint64_t esid_256M, esid_1T;
     int n;
 
+    DPRINTF(PageTableWalker,"SLB lookup for eaddr: 0x%lx\n", eaddr);
+
     esid_256M = (eaddr & SEGMENT_MASK_256M) | SLB_ESID_V;
     esid_1T = (eaddr & SEGMENT_MASK_1T) | SLB_ESID_V;
+
+    DPRINTF(PageTableWalker,"esid_256M: 0x%lx\n", esid_256M);
+    DPRINTF(PageTableWalker,"esid_1T: 0x%lx\n", esid_1T);
 
     int slb_size = 64;
 
     for (n = 0; n < slb_size; n++) {
-        ppc_slb_t *slb = &slb[n]; //&env->slb[n]; //TODO
-
+        ppc_slb_t *slb = &slb_table[n]; //&env->slb[n]; //TODO
+        DPRINTF(PageTableWalker,"slb[%d].esid: 0x%lx\n", n, slb->esid);
+        DPRINTF(PageTableWalker,"slb[%d].vsid: 0x%lx\n", n, slb->vsid);
         /*
          * We check for 1T matches on all MMUs here - if the MMU
          * doesn't have 1T segment support, we will have prevented 1T
@@ -583,13 +610,15 @@ Walker::ppc_slb_t * Walker::slb_lookup(ThreadContext * tc, Addr eaddr)
 
 static inline Addr ppc_hash64_hpt_base(ThreadContext * tc)
 {
-    uint64_t base = tc->readIntReg(INTREG_ASDR);
+    uint64_t base = tc->readIntReg(INTREG_SDAR);
+    DPRINTF(PageTableWalker,"SDAR: 0x%lx\n", base);
     return base & SDR_64_HTABORG;
 }
 
 static inline Addr ppc_hash64_hpt_mask(ThreadContext * tc)
 {
-    uint64_t base = tc->readIntReg(INTREG_ASDR);
+    uint64_t base = tc->readIntReg(INTREG_SDAR);
+    DPRINTF(PageTableWalker,"SDAR: 0x%lx\n", base);
 
 /*
     if (cpu->vhyp) {
@@ -604,12 +633,12 @@ static inline Addr ppc_hash64_hpt_mask(ThreadContext * tc)
 
 uint64_t ppc_hash64_hpte0(const Walker::ppc_hash_pte64_t *hptes, int i)
 {
-    return betoh((uint64_t)&(hptes[i].pte0));
+    return betoh((uint64_t)(hptes[i].pte0));
 }
 
 uint64_t ppc_hash64_hpte1(const Walker::ppc_hash_pte64_t *hptes, int i)
 {
-    return betoh((uint64_t)&(hptes[i].pte1));
+    return betoh((uint64_t)(hptes[i].pte1));
 }
 
 Walker::ppc_hash_pte64_t * Walker::ppc_hash64_map_hptes(ThreadContext * tc,
@@ -629,8 +658,10 @@ Walker::ppc_hash_pte64_t * Walker::ppc_hash64_map_hptes(ThreadContext * tc,
     hptes = new ppc_hash_pte64_t[32];
 
     for (int i = 0; i < n; i++) {
-        hptes[i].pte0 = readPhysMem(base + pte_offset, 8);
-        hptes[i].pte1 = readPhysMem(base + pte_offset + 8, 8);
+        hptes[i].pte0 = readPhysMem(base + pte_offset + 16 * i, 8);
+        hptes[i].pte1 = readPhysMem(base + pte_offset + 16 * i + 8, 8);
+        DPRINTF(PageTableWalker,"mapping hptes[%d].pte0: addr: 0x%llx, 0x%lx\n", i, base + pte_offset + 16 * i, hptes[i].pte0);
+        DPRINTF(PageTableWalker,"mapping hptes[%d].pte1: addr: 0x%llx, 0x%lx\n", i, base + pte_offset + 16 * i + 8, hptes[i].pte1);
     }
 
     return hptes;
@@ -698,6 +729,8 @@ Addr Walker::ppc_hash64_pteg_search(ThreadContext * tc, Addr hash,
          */
 
         pte1 = ppc_hash64_hpte1(pteg, i);
+
+        DPRINTF(PageTableWalker,"pte0: 0x%llx, pte1: 0x%lx\n", pte0, pte1);
 
         /* This compares V, B, H (secondary) and the AVPN */
         if (HPTE64_V_COMPARE(pte0, ptem)) {
@@ -967,12 +1000,32 @@ Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
     int need_prot;
     Addr raddr;
 
-    int mmu_idx = 0;
+
+    int mmu_idx;
+
+    Msr msr = tc->readIntReg(INTREG_MSR);
+    Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+
+    unsigned immu_idx, dmmu_idx;
+    dmmu_idx = msr.pr ? 0 : 1;
+    dmmu_idx |= msr.hv ? 4 : 0;
+    immu_idx = dmmu_idx;
+    immu_idx |= msr.ir ? 0 : 2;
+    dmmu_idx |= msr.dr ? 0 : 2;
+
+    enum {
+        HFLAGS_IMMU_IDX = 26, /* 26..28 -- the composite immu_idx */
+        HFLAGS_DMMU_IDX = 29, /* 29..31 -- the composite dmmu_idx */
+    };
+
+    uint32_t hflags = 0;
+    hflags |= immu_idx << HFLAGS_IMMU_IDX;
+    hflags |= dmmu_idx << HFLAGS_DMMU_IDX;
+
+    mmu_idx = hflags >> (mode == BaseMMU::Execute ? HFLAGS_IMMU_IDX : HFLAGS_DMMU_IDX) & 7;
+    //printf("mmu_idx = %d\n", mmu_idx);
 
     std::pair<Addr, Fault> AddrTran;
-
-    Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
-    Msr msr = tc->readIntReg(INTREG_MSR);
 
     /*
      * Note on LPCR usage: 970 uses HID4, but our special variant of
@@ -996,11 +1049,13 @@ Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
                     PRTABLE_FAULT);
             DPRINTF(PageTableWalker,
             "Fault generated due to invalid pt entry\n");
+            return AddrTran;
         }
         else if (msr.dr == 1 || msr.ir == 1) {
             AddrTran.second = prepareSI(tc, req, mode, NOHPTE);
             DPRINTF(PageTableWalker,
             "Fault due to translation not found\n");
+            return AddrTran;
         }
     }
 
@@ -1009,6 +1064,8 @@ Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
     /* 3. Check for segment level no-execute violation */
     if (mode == BaseMMU::Execute && (slb->vsid & SLB_VSID_N)) {
         AddrTran.second = prepareSI(tc, req, mode, PRTABLE_FAULT);
+        DPRINTF(PageTableWalker,
+            "Fault due to no-excute violation.\n");
         return AddrTran;
     }
 
@@ -1020,10 +1077,12 @@ Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
         } else {
             AddrTran.second = prepareDSI(tc, req, mode, NOHPTE);
         }
+        DPRINTF(PageTableWalker,
+            "Fault due to no PTE.\n");
         return AddrTran;
     }
     DPRINTF(PageTableWalker,
-                  "found PTE at index %08" "%llx" "\n", ptex);
+                  "found PTE at index %08d.\n", ptex);
 
     /* 5. Check access permissions */
 
@@ -1096,9 +1155,57 @@ Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
 
     AddrTran.second = NoFault;
     AddrTran.first = deposit64(pte.pte1 & HPTE64_R_RPN, 0, apshift, vaddr);
-    DPRINTF(PageTableWalker,"paddr:0x%016lx\n",AddrTran.first);
+    DPRINTF(PageTableWalker,"paddr:0x%016lx\n", AddrTran.first);
     return AddrTran;
 }
+
+int
+Walker::ppc_store_slb(int slot,
+                  Addr esid, Addr vsid)
+{
+    ppc_slb_t *slb = &slb_table[slot];
+    const PPCHash64SegmentPageSizes *sps = NULL;
+    int i;
+
+    if (slot >= 64) {
+        return -1; /* Bad slot number */
+    }
+    if (esid & ~(SLB_ESID_ESID | SLB_ESID_V)) {
+        return -1; /* Reserved bits set */
+    }
+    if (vsid & (SLB_VSID_B & ~SLB_VSID_B_1T)) {
+        return -1; /* Bad segment size */
+    }
+    //if ((vsid & SLB_VSID_B) && !(ppc_hash64_has(cpu, PPC_HASH64_1TSEG))) {
+    //    return -1; /* 1T segment on MMU that doesn't support it */
+    //}
+
+    for (i = 0; i < PPC_PAGE_SIZES_MAX_SZ; i++) {
+        const PPCHash64SegmentPageSizes *sps1 = &ppc_hash64_opts_POWER7.sps[i];
+
+        if (!sps1->page_shift) {
+            break;
+        }
+
+        if ((vsid & SLB_VSID_LLP_MASK) == sps1->slb_enc) {
+            sps = sps1;
+            break;
+        }
+    }
+
+    if (!sps) {
+        DPRINTF(PageTableWalker, "Bad page size encoding in SLB store: slot %d esid 0x%llx vsid 0x%llx",
+                     slot, esid, vsid);
+        return -1;
+    }
+
+    slb->esid = esid;
+    slb->vsid = vsid;
+    slb->sps = sps;
+
+    return 0;
+}
+
 
 Fault
 Walker::startFunctional(ThreadContext * _tc, Addr &addr, unsigned &logBytes,

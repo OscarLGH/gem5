@@ -762,16 +762,31 @@ decode PO default Unknown::unknown() {
             982: icbi({{ }});
 
             306: tlbie({{ dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb[0];Rb}});
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[0];Rb}});
             274: tlbiel({{ }});
             566: tlbsync({{ }});
 
-            434: IntLogicOp::slbie({{ Rb; }});
-            498: IntLogicOp::slbia({{ IH; }});
-            402: IntLogicOp::slbmte({{ Rs;Rb; }});
-            851: IntLogicOp::slbmfev({{ Rt;Rb; }});
-            915: IntLogicOp::slbmfee({{ Rt;Rb; }});
-            979: IntLogicOp::slbfee({{ Rt;Rb; }});
+            434: IntLogicOp::slbie({{ Rb;printf("slbie\n"); }});
+            498: IntLogicOp::slbia({{
+                IH;printf("slbia\n");
+                for (int i = 0; i < 64; i++) {
+                    dynamic_cast<PowerISA::TLB *>(
+                                xc->tcBase()->getMMUPtr()->itb)->walker->slb_table[i].esid = 0;
+                    dynamic_cast<PowerISA::TLB *>(
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[i].esid = 0;
+                }
+            }});
+            402: IntLogicOp::slbmte({{
+                int index = Rb & 0x7ff;
+                dynamic_cast<PowerISA::TLB *>(
+                                xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, Rb, Rs);
+                dynamic_cast<PowerISA::TLB *>(
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, Rb, Rs);
+                printf("slbmte, index = %d ESID = %llx VSID = %llx\n", Rb & 0x7ff, Rb, Rs);
+            }});
+            851: IntLogicOp::slbmfev({{ Rt;Rb;printf("slbmfev\n"); }});
+            915: IntLogicOp::slbmfee({{ Rt;Rb;printf("slbmfee\n"); }});
+            979: IntLogicOp::slbfee({{ Rt;Rb;printf("slbfee\n"); }});
         }
         //599: LoadIndexOp::lfdx({{ Ft = Mem_df; }});
         //631: LoadIndexUpdateOp::lfdux({{ Ft = Mem_df; }});
@@ -1286,7 +1301,7 @@ decode PO default Unknown::unknown() {
                 0x209: mthsprg0({{HSPRG0 = Rs;}});
                 0x20a: mthmer({{HMER = Rs;}});
                 0x20E: mtptcr({{ PTCR = Rs; }});
-                0x219: mtasdr({{ASDR = Rs;}});
+                0x219: mtasdr({{ASDR = Rs; printf("set ASDR:%llx\n", ASDR);}});
                 0x21a: mtic({{IC = Rs;}});
                 0x21f: mthir0({{HIR0 = Rs;}});
                 0x220: mtdscr({{ DSCR = Rs; }});
@@ -1337,7 +1352,7 @@ decode PO default Unknown::unknown() {
                 0x398: mtspr398({{ }});
                 0x3b8: mtspr3b8({{ }});
 
-                0x320: mtsdr1({{ SDAR = Rs;}});
+                0x320: mtsdr1({{ SDAR = Rs; printf("set SDAR:%llx\n", SDAR);}});
                 0x389: mtspr389({{ }});
                 0x3db: mtspr3db({{ }});
             }

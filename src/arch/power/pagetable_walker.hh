@@ -449,6 +449,8 @@ namespace PowerISA
             PPCHash64SegmentPageSizes sps[PPC_PAGE_SIZES_MAX_SZ];
         };
 
+        typedef struct PPCHash64Options PPCHash64Options;
+
         /* same as PROT_xxx */
         #define PAGE_READ      0x0001
         #define PAGE_WRITE     0x0002
@@ -477,7 +479,37 @@ namespace PowerISA
 
         public:
 
-          ppc_slb_t slb[64];
+          const PPCHash64Options ppc_hash64_opts_POWER7 = {
+              .flags = PPC_HASH64_1TSEG | PPC_HASH64_AMR | PPC_HASH64_CI_LARGEPAGE,
+              .slb_size = 32,
+              .sps = {
+                  {
+                      .page_shift = 12, /* 4K */
+                      .slb_enc = 0,
+                      .enc = { { .page_shift = 12, .pte_enc = 0 },
+                              { .page_shift = 16, .pte_enc = 0x7 },
+                              { .page_shift = 24, .pte_enc = 0x38 }, },
+                  },
+                  {
+                      .page_shift = 16, /* 64K */
+                      .slb_enc = SLB_VSID_64K,
+                      .enc = { { .page_shift = 16, .pte_enc = 0x1 },
+                              { .page_shift = 24, .pte_enc = 0x8 }, },
+                  },
+                  {
+                      .page_shift = 24, /* 16M */
+                      .slb_enc = SLB_VSID_16M,
+                      .enc = { { .page_shift = 24, .pte_enc = 0 }, },
+                  },
+                  {
+                      .page_shift = 34, /* 16G */
+                      .slb_enc = SLB_VSID_16G,
+                      .enc = { { .page_shift = 34, .pte_enc = 0x3 }, },
+                  },
+              }
+          };
+          ppc_slb_t slb_table[64];
+          PPCHash64PageSize sp_table[8];
 
           ppc_slb_t * slb_lookup(ThreadContext * tc, Addr eaddr);
           ppc_hash_pte64_t * ppc_hash64_map_hptes(ThreadContext * tc,
@@ -499,6 +531,7 @@ namespace PowerISA
           int ppc_hash64_amr_prot(ThreadContext * tc, ppc_hash_pte64_t pte);
           void ppc_hash64_set_r(ThreadContext * tc, Addr ptex, uint64_t pte1);
           void ppc_hash64_set_c(ThreadContext * tc, Addr ptex, uint64_t pte1);
+          int ppc_store_slb(int slot, Addr esid, Addr vsid);
     };
 } // namespace PowerISA
 } // namespace gem5
