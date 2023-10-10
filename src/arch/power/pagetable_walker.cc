@@ -141,6 +141,18 @@ Walker::prepareSI(ThreadContext * tc, RequestPtr req,
       return prepareISI(tc, req, BitMask);
 }
 
+Fault
+Walker::prepareSegInt(ThreadContext * tc, RequestPtr req,
+                    BaseMMU::Mode mode)
+{
+    if (mode != BaseMMU::Execute) {
+        tc->setIntReg(INTREG_DAR, req->getVaddr());
+        return std::make_shared<DataSegmentInterrupt>();
+    } else {
+        return std::make_shared<InstrSegmentInterrupt>();
+    }
+}
+
 uint32_t geteffLPID(ThreadContext *tc)
 {
     Msr msr = tc->readIntReg(INTREG_MSR);
@@ -589,7 +601,7 @@ Walker::ppc_slb_t * Walker::slb_lookup(ThreadContext * tc, Addr eaddr)
     int slb_size = 64;
 
     for (n = 0; n < slb_size; n++) {
-        ppc_slb_t *slb = &slb_table[n]; //&env->slb[n]; //TODO
+        ppc_slb_t *slb = &slb_table[n];
         DPRINTF(PageTableWalker,"slb[%d].esid: 0x%lx\n", n, slb->esid);
         DPRINTF(PageTableWalker,"slb[%d].vsid: 0x%lx\n", n, slb->vsid);
         /*
@@ -730,11 +742,12 @@ Addr Walker::ppc_hash64_pteg_search(ThreadContext * tc, Addr hash,
 
         pte1 = ppc_hash64_hpte1(pteg, i);
 
-        DPRINTF(PageTableWalker,"pte0: 0x%llx, pte1: 0x%lx\n", pte0, pte1);
+        DPRINTF(PageTableWalker, "pte0: 0x%llx, pte1: 0x%lx\n", pte0, pte1);
 
         /* This compares V, B, H (secondary) and the AVPN */
         if (HPTE64_V_COMPARE(pte0, ptem)) {
             *pshift = hpte_page_shift(sps, pte0, pte1);
+            DPRINTF(PageTableWalker, "page shift:%d\n", *pshift);
             /*
              * If there is no match, ignore the PTE, it could simply
              * be for a different segment size encoding and the
@@ -1045,16 +1058,15 @@ Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
         /* Segment still not found, generate the appropriate interrupt */
         AddrTran.first = vaddr;
         if (lpcr.hr == 0) {
-            AddrTran.second = prepareSI(tc, req, mode,
-                    PRTABLE_FAULT);
+            AddrTran.second = prepareSegInt(tc, req, mode);
             DPRINTF(PageTableWalker,
-            "Fault generated due to invalid pt entry\n");
+            "Fault generated due to SLB not found.\n");
             return AddrTran;
         }
         else if (msr.dr == 1 || msr.ir == 1) {
-            AddrTran.second = prepareSI(tc, req, mode, NOHPTE);
+            AddrTran.second = prepareSegInt(tc, req, mode);
             DPRINTF(PageTableWalker,
-            "Fault due to translation not found\n");
+            "Fault generated due to SLB not found.\n");
             return AddrTran;
         }
     }
@@ -1168,12 +1180,15 @@ Walker::ppc_store_slb(int slot,
     int i;
 
     if (slot >= 64) {
+        DPRINTF(PageTableWalker, "store slb: Bad slot number.");
         return -1; /* Bad slot number */
     }
     if (esid & ~(SLB_ESID_ESID | SLB_ESID_V)) {
+        DPRINTF(PageTableWalker, "store slb: Reserved bits set.");
         return -1; /* Reserved bits set */
     }
     if (vsid & (SLB_VSID_B & ~SLB_VSID_B_1T)) {
+        DPRINTF(PageTableWalker, "store slb: Bad segment size.");
         return -1; /* Bad segment size */
     }
     //if ((vsid & SLB_VSID_B) && !(ppc_hash64_has(cpu, PPC_HASH64_1TSEG))) {
@@ -1202,8 +1217,30 @@ Walker::ppc_store_slb(int slot,
     slb->esid = esid;
     slb->vsid = vsid;
     slb->sps = sps;
+    DPRINTF(PageTableWalker, "SLB inserted: slot %d L:%x LP:%x\n",
+                     slot, (vsid & SLB_VSID_L) >> 55, (vsid & SLB_VSID_LP) >> 59);
 
     return 0;
+}
+
+void Walker::slbie_helper(ThreadContext * tc, Addr eaddr)
+{
+    ppc_slb_t *slb;
+
+    slb = slb_lookup(tc, eaddr);
+    if (!slb) {
+        return;
+    }
+
+    if (slb->esid & SLB_ESID_V) {
+        slb->esid &= ~SLB_ESID_V;
+
+        /*
+         * XXX: given the fact that segment size is 256 MB or 1TB,
+         *      and we still don't have a tlb_flush_mask(env, n, mask)
+         *      in QEMU, we just invalidate all TLBs
+         */
+    }
 }
 
 

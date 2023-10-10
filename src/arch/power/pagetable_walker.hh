@@ -532,6 +532,9 @@ namespace PowerISA
           void ppc_hash64_set_r(ThreadContext * tc, Addr ptex, uint64_t pte1);
           void ppc_hash64_set_c(ThreadContext * tc, Addr ptex, uint64_t pte1);
           int ppc_store_slb(int slot, Addr esid, Addr vsid);
+          void slbie_helper(ThreadContext * tc, Addr eaddr);
+          Fault prepareSegInt(ThreadContext * tc, RequestPtr req,
+                    BaseMMU::Mode mode);
     };
 } // namespace PowerISA
 } // namespace gem5

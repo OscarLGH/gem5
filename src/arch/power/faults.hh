@@ -33,6 +33,7 @@
 #include "arch/power/regs/int.hh"
 #include "arch/power/regs/misc.hh"
 #include "cpu/thread_context.hh"
+#include "debug/Fault.hh"
 #include "debug/Interrupt.hh"
 #include "enums/ByteOrder.hh"
 #include "sim/faults.hh"
@@ -54,14 +55,17 @@ namespace PowerISA
 #define unsetMask(start ,end)(~((setBitMask(start))-1) | ((setBitMask(end))-1))
 
 enum pcSet
-{   DecrementerPCSet = 0x900,
-    SystemCallPCSet = 0xC00,
+{
     ProgramPCSet = 0x700,
     DataStoragePCSet = 0x300,
+    DataSegmentPCSet = 0x380,
     InstrStoragePCSet = 0x400,
+    InstrSegmentPCSet = 0x480,
+    DirectExternalPCSet = 0x500,
+    DecrementerPCSet = 0x900,
     PriDoorbellPCSet = 0xA00,
     HypDoorbellPCSet = 0xe80,
-    DirectExternalPCSet = 0x500
+    SystemCallPCSet = 0xC00,
 };
 
 class PowerFault : public FaultBase
@@ -186,7 +190,7 @@ class DirectExternalInterrupt : public PowerInterrupt
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                         StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Interrupt, "Direct External Interrupt invoked\n");
+      DPRINTF(Fault, "Direct External Interrupt invoked\n");
       // Refer Power ISA Manual v3.0B Book-III, section 6.5.7.1
       Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
 
@@ -242,7 +246,7 @@ class HypDoorbellInterrupt : public PowerInterrupt
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Interrupt, "In Hypervisor interrupt\n");
+      DPRINTF(Fault, "In Hypervisor interrupt\n");
       tc->setIntReg(INTREG_HSRR0 , tc->instAddr());
       PowerInterrupt::updateHSRR1(tc);
       PowerInterrupt::updateMsr(tc);
@@ -279,6 +283,24 @@ public:
     }
 };
 
+class InstrSegmentInterrupt : public PowerInterrupt
+{
+public:
+  InstrSegmentInterrupt()
+  {
+  }
+  virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
+                       StaticInst::nullStaticInstPtr)
+    {
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      PowerInterrupt::updateMsr(tc);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(InstrSegmentPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
+    }
+};
+
 
 class DataStorageInterrupt :public PowerInterrupt
 {
@@ -292,11 +314,33 @@ public:
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
-      DPRINTF(Interrupt, "DataStorageFault.pc = %llx addr = %llx\n",
+      DPRINTF(Fault, "DataStorageFault.pc = %llx addr = %llx\n",
         tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR));
       //tc->pcState(DataStoragePCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(DataStoragePCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
+    }
+};
+
+class DataSegmentInterrupt :public PowerInterrupt
+{
+public:
+  DataSegmentInterrupt()
+    {
+    }
+    virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
+                       StaticInst::nullStaticInstPtr)
+    {
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      PowerInterrupt::updateSRR1(tc);
+      PowerInterrupt::updateMsr(tc);
+      DPRINTF(Fault, "DataSegmentFault.pc = %llx addr = %llx\n",
+        tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR));
+      //tc->pcState(DataStoragePCSet);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(DataSegmentPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
     }
@@ -393,7 +437,7 @@ class DecrementerInterrupt : public PowerInterrupt
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                         StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Interrupt, "DecrementerInterrupt.pc = %llx\n",
+      DPRINTF(Fault, "DecrementerInterrupt.pc = %llx\n",
         tc->pcState().instAddr());
       // Refer Power ISA Manual v3.0B Book-III, section 6.5.11
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());

@@ -766,10 +766,16 @@ decode PO default Unknown::unknown() {
             274: tlbiel({{ }});
             566: tlbsync({{ }});
 
-            434: IntLogicOp::slbie({{ Rb;printf("slbie\n"); }});
+            434: IntLogicOp::slbie({{
+                printf("slbie\n");
+                dynamic_cast<PowerISA::TLB *>(
+                                xc->tcBase()->getMMUPtr()->itb)->walker->slbie_helper(xc->tcBase(), Rb);
+                dynamic_cast<PowerISA::TLB *>(
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->slbie_helper(xc->tcBase(), Rb);
+            }});
             498: IntLogicOp::slbia({{
                 IH;printf("slbia\n");
-                for (int i = 0; i < 64; i++) {
+                for (int i = 1; i < 64; i++) {
                     dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slb_table[i].esid = 0;
                     dynamic_cast<PowerISA::TLB *>(
@@ -779,9 +785,9 @@ decode PO default Unknown::unknown() {
             402: IntLogicOp::slbmte({{
                 int index = Rb & 0x7ff;
                 dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, Rb, Rs);
+                                xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
                 dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, Rb, Rs);
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
                 printf("slbmte, index = %d ESID = %llx VSID = %llx\n", Rb & 0x7ff, Rb, Rs);
             }});
             851: IntLogicOp::slbmfev({{ Rt;Rb;printf("slbmfev\n"); }});
