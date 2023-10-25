@@ -56,6 +56,7 @@ namespace PowerISA
 
 enum pcSet
 {
+    SystemResetPCSet = 0x100,
     ProgramPCSet = 0x700,
     DataStoragePCSet = 0x300,
     DataSegmentPCSet = 0x380,
@@ -67,6 +68,27 @@ enum pcSet
     HypDoorbellPCSet = 0xe80,
     SystemCallPCSet = 0xC00,
 };
+
+/* SRR1[42:45] wakeup fields for System Reset Interrupt */
+
+#define SRR1_WAKEMASK           0x003c0000 /* reason for wakeup */
+
+#define SRR1_WAKEHMI            0x00280000 /* Hypervisor maintenance */
+#define SRR1_WAKEHVI            0x00240000 /* Hypervisor Virt. Interrupt (P9) */
+#define SRR1_WAKEEE             0x00200000 /* External interrupt */
+#define SRR1_WAKEDEC            0x00180000 /* Decrementer interrupt */
+#define SRR1_WAKEDBELL          0x00140000 /* Privileged doorbell */
+#define SRR1_WAKERESET          0x00100000 /* System reset */
+#define SRR1_WAKEHDBELL         0x000c0000 /* Hypervisor doorbell */
+#define SRR1_WAKESCOM           0x00080000 /* SCOM not in power-saving mode */
+
+/* SRR1[46:47] power-saving exit mode */
+
+#define SRR1_WAKESTATE          0x00030000 /* Powersave exit mask */
+
+#define SRR1_WS_HVLOSS          0x00030000 /* HV resources not maintained */
+#define SRR1_WS_GPRLOSS         0x00020000 /* GPRs not maintained */
+#define SRR1_WS_NOLOSS          0x00010000 /* All resources maintained */
 
 class PowerFault : public FaultBase
 {
@@ -181,6 +203,35 @@ class PowerInterrupt : public PowerFault
     }
 };
 
+class ResetInterrupt : public PowerInterrupt
+{
+  public:
+    ResetInterrupt()
+    {
+    }
+    virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
+                       StaticInst::nullStaticInstPtr)
+    {
+      DPRINTF(Fault, "System Reset Interrupt invoked\n");
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      uint64_t powersaving = tc->readIntReg(INTREG_PMC6);
+      uint64_t cause = tc->readIntReg(INTREG_PMC5);
+      if (powersaving == 1) {
+        PowerInterrupt::updateSRR1(tc, SRR1_WS_NOLOSS | cause);
+        PowerInterrupt::updateMsr(tc);
+        tc->setIntReg(INTREG_PMC6, 0);
+      } else {
+        PowerInterrupt::updateSRR1(tc);
+        PowerInterrupt::updateMsr(tc);
+      }
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(SystemResetPCSet,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
+      delete pc;
+    }
+};
+
 class DirectExternalInterrupt : public PowerInterrupt
 {
   public:
@@ -215,6 +266,7 @@ class DirectExternalInterrupt : public PowerInterrupt
       PCState *pc = new PCState(DirectExternalPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -234,6 +286,7 @@ class PriDoorbellInterrupt : public PowerInterrupt
       PCState *pc = new PCState(PriDoorbellPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -257,6 +310,7 @@ class HypDoorbellInterrupt : public PowerInterrupt
       PCState *pc = new PCState(HypDoorbellPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -280,6 +334,7 @@ public:
       PCState *pc = new PCState(InstrStoragePCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -293,11 +348,14 @@ public:
                        StaticInst::nullStaticInstPtr)
     {
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      DPRINTF(Fault, "InstrSegmentFault.pc = %llx.\n",
+        tc->pcState().instAddr());
       PowerInterrupt::updateMsr(tc);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(InstrSegmentPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -314,13 +372,14 @@ public:
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerInterrupt::updateSRR1(tc);
       PowerInterrupt::updateMsr(tc);
-      DPRINTF(Fault, "DataStorageFault.pc = %llx addr = %llx\n",
-        tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR));
+      DPRINTF(Fault, "DataStorageFault.pc = %llx addr = %llx DSISR = %llx\n",
+        tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR), tc->readIntReg(INTREG_DSISR));
       //tc->pcState(DataStoragePCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(DataStoragePCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -343,6 +402,7 @@ public:
       PCState *pc = new PCState(DataSegmentPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -365,6 +425,7 @@ class ProgramInterrupt : public PowerInterrupt
       PCState *pc = new PCState(ProgramPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -425,6 +486,7 @@ class SystemCallInterrupt : public PowerInterrupt
       PCState *pc = new PCState(SystemCallPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 
@@ -437,7 +499,7 @@ class DecrementerInterrupt : public PowerInterrupt
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                         StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Fault, "DecrementerInterrupt.pc = %llx\n",
+      DPRINTF(Interrupt, "DecrementerInterrupt.pc = %llx\n",
         tc->pcState().instAddr());
       // Refer Power ISA Manual v3.0B Book-III, section 6.5.11
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
@@ -448,6 +510,7 @@ class DecrementerInterrupt : public PowerInterrupt
       PCState *pc = new PCState(DecrementerPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
+      delete pc;
     }
 };
 

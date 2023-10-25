@@ -99,6 +99,7 @@ class Interrupts : public BaseInterrupts
     {
         inner_counter++;
         Msr msr = tc->readIntReg(INTREG_MSR);
+        int powersaving = tc->readIntReg(INTREG_PMC6);
 
         if (inner_counter % timebase_divider == 0) {
             tc->setIntReg(INTREG_TB , tc->readIntReg(INTREG_TB) + 1);
@@ -106,18 +107,31 @@ class Interrupts : public BaseInterrupts
             tc->setIntReg(INTREG_TBU , tc->readIntReg(INTREG_TB) >> 32);
             tc->setIntReg(INTREG_TBL , tc->readIntReg(INTREG_TB) & 0xffffffff);
             tc->setIntReg(INTREG_TBU40 , tc->readIntReg(INTREG_TB) >> 24);
-            if (tc->readIntReg(INTREG_DEC) != 0)
+            if (tc->readIntReg(INTREG_DEC) != 0) {
+                //DPRINTF(Interrupt, "DEC = %llx.\n", tc->readIntReg(INTREG_DEC));
                 tc->setIntReg(INTREG_DEC , tc->readIntReg(INTREG_DEC) - 1);
-            else {
+            } else {
                 tc->setIntReg(INTREG_DEC, 0xffffffffU);
-                post(Decrementer, 0);
+                if (powersaving) {
+                    tc->setIntReg(INTREG_PMC5, Decrementer);
+                } else {
+                    post(Decrementer, 0);
+                }
             }
         }
 
         if (msr.ee)
         {
-            if (interrupts[2] == 1)
-                return true;
+            if (interrupts[2] == 1) {
+                if (powersaving) {
+                    tc->setIntReg(INTREG_PMC5, Decrementer);
+                    interrupts[2] = 0;
+                    post(SystemReset, 0);
+                    return false;
+                } else {
+                    return true;
+                }
+            }
             for (int i = 0; i < NumInterruptLevels; i++) {
                 if (interrupts[i] == 1)
                     return true;
@@ -132,6 +146,10 @@ class Interrupts : public BaseInterrupts
     getInterrupt()
     {
         //assert(checkInterrupts());
+        if (interrupts[SystemReset]) {
+            clear(SystemReset,0);
+            return std::make_shared<ResetInterrupt>();
+        }
         if (interrupts[Decrementer]) {
             clear(Decrementer,0);
             return std::make_shared<DecrementerInterrupt>();

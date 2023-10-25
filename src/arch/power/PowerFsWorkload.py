@@ -46,12 +46,12 @@ class PowerBareMetal(KernelWorkload):
                               "File, that contains the bootloader code")
     reset_vect = Param.Addr(0x0, 'Reset vector')
 
-    dtb_filename = Param.String("dist/m5/system/binaries/gem5-power9-fs.dtb",
+    dtb_filename = Param.String("dist/m5/system/binaries/gem5-power8-fs.dtb",
         "File that contains the Device Tree Blob. Don't use DTB if empty.")
     dtb_addr = Param.Addr(0x1800000, "DTB address")
     skiboot = Param.String("dist/m5/system/binaries/skiboot.elf",
             "File that contains the OPAL firmware.");
-    kernel_filename = Param.String("dist/m5/system/binaries/vmlinux",
+    kernel_filename = Param.String("dist/m5/system/binaries/vmlinux_gem5",
             "File that contains the kernel.");
     kernel_addr = Param.Addr(0x20000000, "kernel address")
     initramfs_filename = Param.String("dist/m5/system/binaries/initramfs.cpio",

@@ -208,6 +208,7 @@ decode PO default Unknown::unknown() {
             MSR = insertBits(MSR,14,13,bits(SRR1,14,13));
             MSR = insertBits(MSR,11,6,bits(SRR1,11,6));
             MSR = insertBits(MSR,3,0,bits(SRR1,3,0));
+            CFAR = CIA;
             NIA = SRR0 & -4ULL;
         }}, [ IsPrivileged ]);
         274:  MiscOp::hrfid({{
@@ -265,9 +266,14 @@ decode PO default Unknown::unknown() {
         // Conditionally branch to an address in a register based on
         // either CR only or both CR and CTR.
         format BranchRegCondOp {
-            528: bcctr({{ NIA = CTR & -4ULL; }});
-            560: bctar({{ NIA = TAR & -4ULL; }}, true);
+            528: bcctr({{ NIA = CTR & -4ULL; CFAR = CIA; }});
+            560: bctar({{ NIA = TAR & -4ULL; CFAR = CIA; }}, true);
         }
+
+        402: IntArithOp::doze({{ PMC6 = 1; printf("doze\n"); }});
+        434: IntArithOp::nap({{ PMC6 = 1; printf("nap\n"); }});
+        466: IntArithOp::sleep({{ PMC6 = 1; printf("sleep\n"); }});
+        498: IntArithOp::rvwinkle({{ PMC6 = 1; printf("rvwinkle\n");}});
 
         default: decode DX_XO {
             2: IntDispArithOp::addpcis({{ Rt = NIA + (d << 16); }});
@@ -1221,7 +1227,7 @@ decode PO default Unknown::unknown() {
                 0x120: mfctr({{ Rt = CTR; }});
                 0x188: mftb({{ Rt = TB; }});
                 0x1A8: mftbu({{ Rt = TBU; }});
-                0x1b8: mfsdar({{Rt = SDAR;}});
+                0x1b8: mfsdar({{Rt = SDAR; printf("read SDAR:%llx\n", SDAR);}});
                 0x1f9: mftar({{Rt = TAR;}});
                 0x204: mftidr({{ Rt = TIDR; }}, [ IsPrivileged ]);
                 0x205: mfdpdes({{ Rt = DPDES; }}, [ IsPrivileged ]);
@@ -1250,6 +1256,7 @@ decode PO default Unknown::unknown() {
                 0x2C0: mfdec({{ Rt = DEC; }});
                 0x2c9: mfhdec({{Rt = HDEC;}});
                 0x2fa: mfpsscr({{Rt = PSSCR;}});
+                0x320: mfsdr1({{Rt = SDAR; printf("read SDAR:%llx\n", SDAR);}});
                 0x324: mffscr({{Rt = FSCR;}});
                 0x329: mfhrmor({{Rt = HRMOR;}});
                 0x340: mfsrr0({{ Rt = SRR0; }});

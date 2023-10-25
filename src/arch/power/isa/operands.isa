@@ -177,4 +177,5 @@ def operands {{
     'VTB': ('IntReg', 'ud', 'INTREG_VTB', 'IsInteger' , 9),
     'HSPRG1': ('IntReg', 'ud', 'INTREG_HSPRG1', 'IsInteger' , 9),
     'PIR': ('IntReg', 'uw', 'INTREG_PIR', 'IsInteger' , 9),
+    'POWERSAVING' : ('IntReg', 'uw', 'INTREG_PIR', 'IsInteger' , 9),
 }};

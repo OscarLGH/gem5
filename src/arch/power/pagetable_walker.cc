@@ -764,11 +764,11 @@ Addr Walker::ppc_hash64_pteg_search(ThreadContext * tc, Addr hash,
              */
             pte->pte0 = pte0;
             pte->pte1 = pte1;
-
+            delete [] pteg;
             return ptex + i;
         }
     }
-    delete pteg;
+    delete [] pteg;
     /*
      * We didn't find a valid entry.
      */
