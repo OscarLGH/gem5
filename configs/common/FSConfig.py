@@ -685,13 +685,13 @@ def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
     self.bridge.slave = self.membus.master
     self.bridge.ranges = \
         [
-        AddrRange(0xC0000000, 0xFFFF0000),
+        AddrRange(0xC0000000, 0xFFFEFFFF),
         AddrRange(self.g500.uart.pio_addr,
             0xFFFFFFFF)
         ]
     self.system_port = self.membus.slave
     if not cmdline:
-        cmdline = 'ramdisk_start=0x28000000'
+        cmdline = 'ramdisk_start=0x28000000 console=ttyS0'
     self.workload.command_line = fillInCmdline(mdesc, cmdline)
 
     return self

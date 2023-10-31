@@ -51,7 +51,7 @@ class PowerBareMetal(KernelWorkload):
     dtb_addr = Param.Addr(0x1800000, "DTB address")
     skiboot = Param.String("dist/m5/system/binaries/skiboot.elf",
             "File that contains the OPAL firmware.");
-    kernel_filename = Param.String("dist/m5/system/binaries/vmlinux_gem5",
+    kernel_filename = Param.String("dist/m5/system/binaries/vmlinux",
             "File that contains the kernel.");
     kernel_addr = Param.Addr(0x20000000, "kernel address")
     initramfs_filename = Param.String("dist/m5/system/binaries/initramfs.cpio",

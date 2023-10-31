@@ -270,10 +270,10 @@ decode PO default Unknown::unknown() {
             560: bctar({{ NIA = TAR & -4ULL; CFAR = CIA; }}, true);
         }
 
-        402: IntArithOp::doze({{ PMC6 = 1; printf("doze\n"); }});
-        434: IntArithOp::nap({{ PMC6 = 1; printf("nap\n"); }});
-        466: IntArithOp::sleep({{ PMC6 = 1; printf("sleep\n"); }});
-        498: IntArithOp::rvwinkle({{ PMC6 = 1; printf("rvwinkle\n");}});
+        402: IntArithOp::doze({{ PMC6 = 1; }});
+        434: IntArithOp::nap({{ PMC6 = 1; }});
+        466: IntArithOp::sleep({{ PMC6 = 1; }});
+        498: IntArithOp::rvwinkle({{ PMC6 = 1; }});
 
         default: decode DX_XO {
             2: IntDispArithOp::addpcis({{ Rt = NIA + (d << 16); }});
@@ -773,14 +773,13 @@ decode PO default Unknown::unknown() {
             566: tlbsync({{ }});
 
             434: IntLogicOp::slbie({{
-                printf("slbie\n");
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slbie_helper(xc->tcBase(), Rb);
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->slbie_helper(xc->tcBase(), Rb);
             }});
             498: IntLogicOp::slbia({{
-                IH;printf("slbia\n");
+                IH;
                 for (int i = 1; i < 64; i++) {
                     dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slb_table[i].esid = 0;
@@ -794,11 +793,11 @@ decode PO default Unknown::unknown() {
                                 xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
-                printf("slbmte, index = %d ESID = %llx VSID = %llx\n", Rb & 0x7ff, Rb, Rs);
+                //printf("slbmte, index = %d ESID = %llx VSID = %llx\n", Rb & 0x7ff, Rb, Rs);
             }});
-            851: IntLogicOp::slbmfev({{ Rt;Rb;printf("slbmfev\n"); }});
-            915: IntLogicOp::slbmfee({{ Rt;Rb;printf("slbmfee\n"); }});
-            979: IntLogicOp::slbfee({{ Rt;Rb;printf("slbfee\n"); }});
+            851: IntLogicOp::slbmfev({{ Rt;Rb;}});
+            915: IntLogicOp::slbmfee({{ Rt;Rb;}});
+            979: IntLogicOp::slbfee({{ Rt;Rb;}});
         }
         //599: LoadIndexOp::lfdx({{ Ft = Mem_df; }});
         //631: LoadIndexUpdateOp::lfdux({{ Ft = Mem_df; }});
@@ -1227,7 +1226,7 @@ decode PO default Unknown::unknown() {
                 0x120: mfctr({{ Rt = CTR; }});
                 0x188: mftb({{ Rt = TB; }});
                 0x1A8: mftbu({{ Rt = TBU; }});
-                0x1b8: mfsdar({{Rt = SDAR; printf("read SDAR:%llx\n", SDAR);}});
+                0x1b8: mfsdar({{Rt = SDAR; }});
                 0x1f9: mftar({{Rt = TAR;}});
                 0x204: mftidr({{ Rt = TIDR; }}, [ IsPrivileged ]);
                 0x205: mfdpdes({{ Rt = DPDES; }}, [ IsPrivileged ]);
@@ -1256,7 +1255,7 @@ decode PO default Unknown::unknown() {
                 0x2C0: mfdec({{ Rt = DEC; }});
                 0x2c9: mfhdec({{Rt = HDEC;}});
                 0x2fa: mfpsscr({{Rt = PSSCR;}});
-                0x320: mfsdr1({{Rt = SDAR; printf("read SDAR:%llx\n", SDAR);}});
+                0x320: mfsdr1({{Rt = SDAR; }});
                 0x324: mffscr({{Rt = FSCR;}});
                 0x329: mfhrmor({{Rt = HRMOR;}});
                 0x340: mfsrr0({{ Rt = SRR0; }});
@@ -1314,7 +1313,7 @@ decode PO default Unknown::unknown() {
                 0x209: mthsprg0({{HSPRG0 = Rs;}});
                 0x20a: mthmer({{HMER = Rs;}});
                 0x20E: mtptcr({{ PTCR = Rs; }});
-                0x219: mtasdr({{ASDR = Rs; printf("set ASDR:%llx\n", ASDR);}});
+                0x219: mtasdr({{ASDR = Rs; }});
                 0x21a: mtic({{IC = Rs;}});
                 0x21f: mthir0({{HIR0 = Rs;}});
                 0x220: mtdscr({{ DSCR = Rs; }});
@@ -1365,7 +1364,7 @@ decode PO default Unknown::unknown() {
                 0x398: mtspr398({{ }});
                 0x3b8: mtspr3b8({{ }});
 
-                0x320: mtsdr1({{ SDAR = Rs; printf("set SDAR:%llx\n", SDAR);}});
+                0x320: mtsdr1({{ SDAR = Rs; }});
                 0x389: mtspr389({{ }});
                 0x3db: mtspr3db({{ }});
             }
