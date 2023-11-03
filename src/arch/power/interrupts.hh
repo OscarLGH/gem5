@@ -101,7 +101,7 @@ class Interrupts : public BaseInterrupts
         Msr msr = tc->readIntReg(INTREG_MSR);
         int powersaving = tc->readIntReg(INTREG_PMC6);
 
-        if (inner_counter % timebase_divider == 0) {
+        if (0 && inner_counter % timebase_divider == 0) {
             tc->setIntReg(INTREG_TB , tc->readIntReg(INTREG_TB) + 1);
             tc->setIntReg(INTREG_VTB , tc->readIntReg(INTREG_VTB) + 1);
             tc->setIntReg(INTREG_TBU , tc->readIntReg(INTREG_TB) >> 32);

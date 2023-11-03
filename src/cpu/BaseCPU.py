@@ -208,7 +208,7 @@ class BaseCPU(ClockedObject):
         self.icache_port = ic.cpu_side
         self.dcache_port = dc.cpu_side
         self._cached_ports = ['icache.mem_side', 'dcache.mem_side']
-        if buildEnv['TARGET_ISA'] in ['x86', 'arm', 'riscv']:
+        if buildEnv['TARGET_ISA'] in ['x86', 'arm', 'riscv', 'power']:
             if iwc and dwc:
                 self.itb_walker_cache = iwc
                 self.dtb_walker_cache = dwc

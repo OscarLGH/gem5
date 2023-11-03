@@ -415,7 +415,7 @@ decode PO default Unknown::unknown() {
 
         format LoadIndexOp {
             20: lwarx({{ Rt = Mem_uw; }},
-                      {{ Rsv = 1; RsvLen = 4; RsvAddr = EA; }});
+                      {{ Rsv = 1; RsvLen = 4; RsvAddr = EA; printf("setting:Rsv = %d\n", Rsv);}});
 
             21: ldx({{ Rt = Mem; }});
             23: lwzx({{ Rt = Mem_uw; }});
@@ -453,7 +453,7 @@ decode PO default Unknown::unknown() {
         }});
 
         52: LoadIndexOp::lbarx({{ Rt = Mem_ub; }},
-                               {{ Rsv = 1; RsvLen = 1; RsvAddr = EA; }});
+                               {{ Rsv = 1; RsvLen = 1; RsvAddr = EA; printf("setting:Rsv = %d\n", Rsv);}});
 
         53: LoadIndexUpdateOp::ldux({{ Rt = Mem; }});
         55: LoadIndexUpdateOp::lwzux({{ Rt = Mem_uw; }});
@@ -467,12 +467,12 @@ decode PO default Unknown::unknown() {
 
         format LoadIndexOp {
             84: ldarx({{ Rt = Mem_ud; }},
-                      {{ Rsv = 1; RsvLen = 8; RsvAddr = EA; }});
+                      {{ Rsv = 1; RsvLen = 8; RsvAddr = EA; printf("setting:Rsv = %d\n", Rsv);}});
 
             87: lbzx({{ Rt = Mem_ub; }});
 
             116: lharx({{ Rt = Mem_uh;}},
-                       {{  Rsv = 1; RsvLen = 2; RsvAddr = EA; }});
+                       {{  Rsv = 1; RsvLen = 2; RsvAddr = EA; printf("setting:Rsv = %d\n", Rsv);}});
         }
 
         119: LoadIndexUpdateOp::lbzux({{ Rt = Mem_ub; }});
@@ -497,24 +497,18 @@ decode PO default Unknown::unknown() {
         format StoreIndexOp {
             149: stdx({{ Mem = Rs }});
             150: stwcx({{
-                if (Rsv) {
-                    Mem_uw = Rs_uw;
-                }
-            }}, {{
+                printf("Rsv = %llx\n", Rsv);
                 bool store_performed = false;
                 if (Rsv) {
-                    if (RsvLen == 4) {
-                        if (RsvAddr == EA) {
-                            store_performed = true;
-                        }
-                    }
+                    Mem_uw = Rs_uw;
+                    printf("Rs = %llx\n", Rs_uw);
                     store_performed = true;
+                    Rsv = 0;
                 }
                 Xer xer = XER;
                 PowerISA::Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
-                Rsv = 0;
             }});
 
             151: stwx({{ Mem_uw = Rs_uw; }});
@@ -558,24 +552,17 @@ decode PO default Unknown::unknown() {
 
         format StoreIndexOp {
             214: stdcx({{
-                if (Rsv) {
-                    Mem = Rs;
-                }
-            }}, {{
+                printf("Rsv = %llx\n", Rsv);
                 bool store_performed = false;
                 if (Rsv) {
-                    if (RsvLen == 8) {
-                        if (RsvAddr == EA) {
-                            store_performed = true;
-                        }
-                    }
+                    Mem = Rs;
                     store_performed = true;
+                    Rsv = 0;
                 }
                 Xer xer = XER;
                 Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
-                Rsv = 0;
             }});
 
             215: stbx({{ Mem_ub = Rs_ub; }});
@@ -743,29 +730,32 @@ decode PO default Unknown::unknown() {
         //598: MiscOp::sync({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
         // These instructions all provide data cache hints
         // Right now doesn't have cache support
-        format MiscOp {
-            278: dcbt({{ }});
-            246: dcbtst({{ }});
+        format CacheLoadIndexOp {
+            278: dcbt({{ Mem; }});
+            246: dcbtst({{ Mem; }});
+            86: dcbf({{ Mem; }});
+            54: dcbst({{ Mem; }});
+            982: icbi({{ Mem; }});
+        }
 
+        format StoreIndexOp {
             1014: dcbz({{
                   Request::Flags flags = Request::PHYSICAL;
                   Addr EA;
-                  if(RA == 0)
-                    EA = Rb & -128ULL;
+                  if (RA == 0)
+                      EA = Rb & -128ULL;
                   else
                     EA = (Ra + Rb) & -128ULL;
-                  Mem = 0;
+
                   for (int i = 0; i < 16; ++i) {
-                    writeMemAtomicLE(xc, traceData, Mem,EA + i*8,
-                                            flags, NULL);
+                    Mem_cacheline[i] = 0;
                 }
             }});
+        }
 
-            86: dcbf({{ }});
+        format MiscOp {
             598: sync({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
             854: eieio({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
-            54:  dcbst({{ }});
-            982: icbi({{ }});
 
             306: tlbie({{ dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[0];Rb}});
@@ -808,24 +798,17 @@ decode PO default Unknown::unknown() {
             //663: stfsx({{ Mem_sf = Fs_sf; }});
 
             694: stbcx({{
-                if (Rsv) {
-                    Mem_ub = Rs_ub;
-                }
-            }}, {{
+                printf("Rsv = %llx\n", Rsv);
                 bool store_performed = false;
                 if (Rsv) {
-                    if (RsvLen == 1) {
-                        if (RsvAddr == EA) {
-                            store_performed = true;
-                        }
-                    }
+                    Mem_ub = Rs_ub;
                     store_performed = true;
+                    Rsv = 0;
                 }
                 Xer xer = XER;
                 Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
-                Rsv = 0;
             }});
         }
 
@@ -833,24 +816,17 @@ decode PO default Unknown::unknown() {
 
         format StoreIndexOp {
             726: sthcx({{
-                if (Rsv) {
-                    Mem_uh = Rs_uh;
-                }
-            }}, {{
+                printf("Rsv = %llx\n", Rsv);
                 bool store_performed = false;
                 if (Rsv) {
-                    if (RsvLen == 2) {
-                        if (RsvAddr == EA) {
-                            store_performed = true;
-                        }
-                    }
+                    Mem_uh = Rs_uh;
                     store_performed = true;
+                    Rsv = 0;
                 }
                 Xer xer = XER;
                 Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
-                Rsv = 0;
             }});
 
             //727: stfdx({{ Mem_df = Fs; }});

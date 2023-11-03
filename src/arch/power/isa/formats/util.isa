@@ -161,8 +161,10 @@ def LoadStoreBase(name, Name, ea_code, memacc_code, update_code,
                         inst_flags)
 
     if mem_flags:
+        mem_flags = [ 'Request::%s' % flag for flag in mem_flags ]
         s = '\n\tmemAccessFlags = ' + '|'.join(mem_flags) + ';'
         iop.constructor += s
+
 
     fullExecTemplate = eval(exec_template_base + 'Execute')
     initiateAccTemplate = eval(exec_template_base + 'InitiateAcc')

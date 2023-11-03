@@ -40,7 +40,8 @@ def operand_types {{
     'uq' : '__uint128_t',
     'sf' : 'float',
     'df' : 'double',
-    'vc' : 'PowerISA::VecRegContainer'
+    'vc' : 'PowerISA::VecRegContainer',
+    'cacheline' : 'std::array<uint64_t, 16>'
 }};
 
 def operands {{
