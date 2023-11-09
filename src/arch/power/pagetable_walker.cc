@@ -245,7 +245,7 @@ Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
     }
     return AddrTran.second;
 } */
-
+/*
 Fault
 Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
               const RequestPtr &_req, BaseMMU::Mode _mode)
@@ -265,6 +265,32 @@ Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
       vaddr,AddrTran.first);
     }
     return AddrTran.second;
+}
+*/
+
+Fault
+Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
+              const RequestPtr &_req, BaseMMU::Mode _mode)
+{
+    // TODO: in timing mode, instead of blocking when there are other
+    // outstanding requests, see if this request can be coalesced with
+    // another one (i.e. either coalesce or start walk)
+    WalkerState * newState = new WalkerState(this, _translation, _req);
+    newState->initState(_tc, _mode, sys->isTimingMode());
+    if (currStates.size()) {
+        assert(newState->isTiming());
+        DPRINTF(PageTableWalker, "Walks in progress: %d\n", currStates.size());
+        currStates.push_back(newState);
+        return NoFault;
+    } else {
+        currStates.push_back(newState);
+        Fault fault = newState->startWalk();
+        if (!newState->isTiming()) {
+            currStates.pop_front();
+            delete newState;
+        }
+        return fault;
+    }
 }
 
 uint64_t
@@ -534,7 +560,7 @@ Walker::walkRadixTree(Addr vaddr ,uint64_t curBase ,ThreadContext * tc ,
 
         //Ref: Power ISA Manual v3.0B, Book-III, section 5. 7.10.2
         if (rpde.leaf == 1) {
-                Rpte  rpte = (uint64_t)rpde;
+                Rpte rpte = (uint64_t)rpde;
                 uint64_t realpn = rpde & RPN_MASK;
                 uint64_t pageMask = (1UL << usefulBits) - 1;
                 Addr paddr = (realpn & ~pageMask) | (vaddr & pageMask);
@@ -1243,6 +1269,170 @@ void Walker::slbie_helper(ThreadContext * tc, Addr eaddr)
     }
 }
 
+void Walker::WalkerState::ppc_hash64_send_hpteg_request(ThreadContext * tc,
+                                             Addr ptex)
+{
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
+    Addr pte_offset = ptex * HASH_PTE_SIZE_64;
+    Addr base;
+    base = ppc_hash64_hpt_base(tc);
+
+    if (!base) {
+        panic("SDR0 base = 0.");
+    }
+
+    Addr phys_addr = base + pte_offset;
+    int hpteg_size = HPTES_PER_GROUP * HASH_PTE_SIZE_64;
+
+    Request::Flags flags = Request::PHYSICAL;
+    RequestPtr request = std::make_shared<Request>(
+        phys_addr, hpteg_size, flags, walker->requestorId);
+
+    read = new Packet(request, MemCmd::ReadReq);
+    read->allocate();
+}
+
+Addr Walker::ppc_hash64_pteg_recv_search(ThreadContext * tc, Addr hash,
+                                     const PPCHash64SegmentPageSizes *sps,
+                                     Addr ptem,
+                                     ppc_hash_pte64_t *pte, unsigned *pshift, const ppc_hash_pte64_t *pteg)
+{
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
+    int i;
+    Addr pte0, pte1;
+    Addr ptex;
+
+    ptex = (hash & ppc_hash64_hpt_mask(tc)) * HPTES_PER_GROUP;
+    if (!pteg) {
+        return -1;
+    }
+    for (i = 0; i < HPTES_PER_GROUP; i++) {
+        pte0 = ppc_hash64_hpte0(pteg, i);
+        /*
+         * pte0 contains the valid bit and must be read before pte1,
+         * otherwise we might see an old pte1 with a new valid bit and
+         * thus an inconsistent hpte value
+         */
+
+        pte1 = ppc_hash64_hpte1(pteg, i);
+
+        DPRINTF(PageTableWalker, "pte0: 0x%llx, pte1: 0x%lx\n", pte0, pte1);
+
+        /* This compares V, B, H (secondary) and the AVPN */
+        if (HPTE64_V_COMPARE(pte0, ptem)) {
+            *pshift = hpte_page_shift(sps, pte0, pte1);
+            DPRINTF(PageTableWalker, "page shift:%d\n", *pshift);
+            /*
+             * If there is no match, ignore the PTE, it could simply
+             * be for a different segment size encoding and the
+             * architecture specifies we should not match. Linux will
+             * potentially leave behind PTEs for the wrong base page
+             * size when demoting segments.
+             */
+            if (*pshift == 0) {
+                continue;
+            }
+            /*
+             * We don't do anything with pshift yet as qemu TLB only
+             * deals with 4K pages anyway
+             */
+            pte->pte0 = pte0;
+            pte->pte1 = pte1;
+            //delete [] pteg;
+            return ptex + i;
+        }
+    }
+    //delete [] pteg;
+    /*
+     * We didn't find a valid entry.
+     */
+    return -1;
+}
+
+Addr Walker::ppc_hash64_htab_primary_hash(ThreadContext *tc,
+                                     Walker::ppc_slb_t *slb, Addr eaddr)
+{
+    Addr hash, ptex;
+    uint64_t vsid, epnmask, epn, ptem;
+    const Walker::PPCHash64SegmentPageSizes *sps = slb->sps;
+
+    /*
+     * The SLB store path should prevent any bad page size encodings
+     * getting in there, so:
+     */
+    assert(sps);
+
+    //Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+
+    /* If ISL is set in LPCR we need to clamp the page size to 4K */
+    // if (lpcr & LPCR_ISL) {
+    //     /* We assume that when using TCG, 4k is first entry of SPS */
+    //     sps = &cpu->hash64_opts->sps[0];
+    //     assert(sps->page_shift == 12);
+    // }
+
+    epnmask = ~((1ULL << sps->page_shift) - 1);
+
+    if (slb->vsid & SLB_VSID_B) {
+        /* 1TB segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT_1T;
+        epn = (eaddr & ~SEGMENT_MASK_1T) & epnmask;
+        hash = vsid ^ (vsid << 25) ^ (epn >> sps->page_shift);
+    } else {
+        /* 256M segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT;
+        epn = (eaddr & ~SEGMENT_MASK_256M) & epnmask;
+        hash = vsid ^ (epn >> sps->page_shift);
+    }
+
+    ptex = (hash & ppc_hash64_hpt_mask(tc)) * HPTES_PER_GROUP;
+
+    return ptex;
+}
+
+Addr Walker::ppc_hash64_htab_secondary_hash(ThreadContext *tc,
+                                     Walker::ppc_slb_t *slb, Addr eaddr)
+{
+    Addr hash, ptex;
+    uint64_t vsid, epnmask, epn, ptem;
+    const Walker::PPCHash64SegmentPageSizes *sps = slb->sps;
+
+    /*
+     * The SLB store path should prevent any bad page size encodings
+     * getting in there, so:
+     */
+    assert(sps);
+
+    //Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+
+    /* If ISL is set in LPCR we need to clamp the page size to 4K */
+    // if (lpcr & LPCR_ISL) {
+    //     /* We assume that when using TCG, 4k is first entry of SPS */
+    //     sps = &cpu->hash64_opts->sps[0];
+    //     assert(sps->page_shift == 12);
+    // }
+
+    epnmask = ~((1ULL << sps->page_shift) - 1);
+
+    if (slb->vsid & SLB_VSID_B) {
+        /* 1TB segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT_1T;
+        epn = (eaddr & ~SEGMENT_MASK_1T) & epnmask;
+        hash = vsid ^ (vsid << 25) ^ (epn >> sps->page_shift);
+    } else {
+        /* 256M segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT;
+        epn = (eaddr & ~SEGMENT_MASK_256M) & epnmask;
+        hash = vsid ^ (epn >> sps->page_shift);
+    }
+
+    ptex = (~hash & ppc_hash64_hpt_mask(tc)) * HPTES_PER_GROUP;
+
+    return ptex;
+}
+
 
 Fault
 Walker::startFunctional(ThreadContext * _tc, Addr &addr, unsigned &logBytes,
@@ -1255,12 +1445,16 @@ Walker::startFunctional(ThreadContext * _tc, Addr &addr, unsigned &logBytes,
 bool
 Walker::WalkerPort::recvTimingResp(PacketPtr pkt)
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
     return walker->recvTimingResp(pkt);
 }
 
 bool
 Walker::recvTimingResp(PacketPtr pkt)
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
     WalkerSenderState * senderState =
         dynamic_cast<WalkerSenderState *>(pkt->popSenderState());
     WalkerState * senderWalk = senderState->senderWalk;
@@ -1343,48 +1537,380 @@ Walker::WalkerState::initState(ThreadContext * _tc,
 void
 Walker::startWalkWrapper()
 {
+    unsigned num_squashed = 0;
+    WalkerState *currState = currStates.front();
+    while ((num_squashed < numSquashable) && currState &&
+        currState->translation->squashed()) {
+        currStates.pop_front();
+        num_squashed++;
 
+        DPRINTF(PageTableWalker, "Squashing table walk for address %#x\n",
+            currState->req->getVaddr());
+
+        // finish the translation which will delete the translation object
+        currState->translation->finish(
+            std::make_shared<UnimpFault>("Squashed Inst"),
+            currState->req, currState->tc, currState->mode);
+
+        // delete the current request if there are no inflight packets.
+        // if there is something in flight, delete when the packets are
+        // received and inflight is zero.
+        if (currState->numInflight() == 0) {
+            delete currState;
+        } else {
+            currState->squash();
+        }
+
+        // check the next translation request, if it exists
+        if (currStates.size())
+            currState = currStates.front();
+        else
+            currState = NULL;
+    }
+    if (currState && !currState->wasStarted())
+        currState->startWalk();
 }
 
 Fault
 Walker::WalkerState::startWalk()
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
     Fault fault = NoFault;
+    assert(!started);
+    started = true;
+    fault = setupWalk(req->getVaddr());
+    DPRINTF(PageTableWalker,
+            "startWalk for translating addr:%llx.\n", req->getVaddr());
+    if (fault != NoFault) {
+        nextState = Ready;
+        return fault;
+    }
+
+    if (timing) {
+        nextState = state;
+        state = WaitingHash0;
+        timingFault = NoFault;
+        sendPackets();
+    } else {
+        do {
+            walker->port.sendAtomic(read);
+            PacketPtr write = NULL;
+            fault = stepWalk(write);
+            //assert(fault == NoFault || read == NULL);
+            state = nextState;
+            nextState = Ready;
+            if (write)
+                walker->port.sendAtomic(write);
+        } while (read);
+        state = Ready;
+        nextState = WaitingHash0;
+    }
     return fault;
 }
 
 Fault
 Walker::WalkerState::startFunctional(Addr &addr, unsigned &logBytes)
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
     Fault fault = NoFault;
-    return fault;
-}
+    assert(!started);
+    started = true;
+    setupWalk(addr);
 
-Fault
-Walker::WalkerState::stepWalk(PacketPtr &write)
-{
-    Fault fault = NoFault;
+    do {
+        walker->port.sendFunctional(read);
+        // On a functional access (page table lookup), writes should
+        // not happen so this pointer is ignored after stepWalk
+        PacketPtr write = NULL;
+        fault = stepWalk(write);
+        assert(fault == NoFault || read == NULL);
+        state = nextState;
+        nextState = Ready;
+    } while (read);
+    //logBytes = entry.logBytes;
+    //addr = entry.paddr << PageShift;
+
     return fault;
 }
 
 void
 Walker::WalkerState::endWalk()
 {
-
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
+    nextState = Ready;
+    delete read;
+    read = NULL;
 }
 
-void
+Fault
 Walker::WalkerState::setupWalk(Addr vaddr)
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
 
+    ppc_slb_t vrma_slbe;
+    ppc_slb_t *slb;
+    unsigned apshift;
+    Addr ptex;
+    ppc_hash_pte64_t pte;
+    Addr raddr;
+
+    Msr msr = tc->readIntReg(INTREG_MSR);
+    Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+
+    Fault fault = NoFault;
+
+    /*
+     * Note on LPCR usage: 970 uses HID4, but our special variant of
+     * store_spr copies relevant fields into env->spr[SPR_LPCR].
+     * Similarly we filter unimplemented bits when storing into LPCR
+     * depending on the MMU version. This code can thus just use the
+     * LPCR "as-is".
+     */
+
+    /* 1. Handle real mode accesses */
+
+    /* 2. Translation is on, so look up the SLB */
+    slb = walker->slb_lookup(tc, vaddr);
+    if (!slb) {
+        /* No entry found, check if in-memory segment tables are in use */
+
+        /* Segment still not found, generate the appropriate interrupt */
+        if (lpcr.hr == 0) {
+            fault = walker->prepareSegInt(tc, req, mode);
+            DPRINTF(PageTableWalker,
+            "Fault generated due to SLB not found.\n");
+            return fault;
+        }
+        else if (msr.dr == 1 || msr.ir == 1) {
+            fault= walker->prepareSegInt(tc, req, mode);
+            DPRINTF(PageTableWalker,
+            "Fault generated due to SLB not found.\n");
+            return fault;
+        }
+    }
+
+    slb_e = slb;
+
+    /* 3. Check for segment level no-execute violation */
+    if (mode == BaseMMU::Execute && (slb->vsid & SLB_VSID_N)) {
+        fault = walker->prepareSI(tc, req, mode, PRTABLE_FAULT);
+        DPRINTF(PageTableWalker,
+            "Fault due to no-excute violation.\n");
+        return fault;
+    }
+
+    ptex = walker->ppc_hash64_htab_primary_hash(tc, slb, vaddr);
+
+    ppc_hash64_send_hpteg_request(tc, ptex);
+    return fault;
+}
+
+Fault
+Walker::WalkerState::stepWalk(PacketPtr &write)
+{
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
+
+    Fault fault = NoFault;
+
+    Addr nextRead = 0;
+    bool doWrite = false;
+    bool doTLBInsert = false;
+    bool doEndWalk = false;
+
+    unsigned apshift;
+    ppc_hash_pte64_t pte;
+    Addr hash, ptex;
+
+    //Walker:: pte = read->getLE<uint64_t>();
+    Walker::ppc_hash_pte64 *pteg = read->getPtr<Walker::ppc_hash_pte64>();
+    Walker::ppc_slb_t *slb = slb_e;
+
+    uint64_t vsid, epnmask, epn, ptem, eaddr;
+    const Walker::PPCHash64SegmentPageSizes *sps = slb->sps;
+
+    eaddr = req->getVaddr();
+    DPRINTF(PageTableWalker,
+            "translation for vaddr:%llx.\n", eaddr);
+
+
+    /*
+     * The SLB store path should prevent any bad page size encodings
+     * getting in there, so:
+     */
+    assert(sps);
+
+    //Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+
+    /* If ISL is set in LPCR we need to clamp the page size to 4K */
+    // if (lpcr & LPCR_ISL) {
+    //     /* We assume that when using TCG, 4k is first entry of SPS */
+    //     sps = &cpu->hash64_opts->sps[0];
+    //     assert(sps->page_shift == 12);
+    // }
+
+    epnmask = ~((1ULL << sps->page_shift) - 1);
+
+    if (slb->vsid & SLB_VSID_B) {
+        /* 1TB segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT_1T;
+        epn = (eaddr & ~SEGMENT_MASK_1T) & epnmask;
+        hash = vsid ^ (vsid << 25) ^ (epn >> sps->page_shift);
+    } else {
+        /* 256M segment */
+        vsid = (slb->vsid & SLB_VSID_VSID) >> SLB_VSID_SHIFT;
+        epn = (eaddr & ~SEGMENT_MASK_256M) & epnmask;
+        hash = vsid ^ (epn >> sps->page_shift);
+    }
+    ptem = (slb->vsid & SLB_VSID_PTEM) | ((epn >> 16) & HPTE64_V_AVPN);
+    ptem |= HPTE64_V_VALID;
+
+    /* Primary PTEG lookup */
+    DPRINTF(PageTableWalker,
+            "0 htab=" "%llx" "/" "%llx"
+            " vsid=" "%llx" " ptem=" "%llx"
+            " hash=" "%llx" "\n",
+            ppc_hash64_hpt_base(tc), ppc_hash64_hpt_mask(tc),
+            vsid, ptem,  hash);
+
+    ptex = walker->ppc_hash64_pteg_recv_search(tc, hash, slb->sps, ptem, &pte, &apshift, pteg);
+    if (ptex == -1) {
+        if (mode == BaseMMU::Execute) {
+            fault = walker->prepareISI(tc, req, NOHPTE);
+        } else {
+            fault = walker->prepareDSI(tc, req, mode, NOHPTE);
+        }
+        DPRINTF(PageTableWalker,
+            "Fault due to no PTE.\n");
+        endWalk();
+        return fault;
+    }
+
+    DPRINTF(PageTableWalker,
+                  "found PTE at index %08d.\n", ptex);
+
+    /* 5. Check access permissions */
+
+    int exec_prot, pp_prot, amr_prot, prot;
+    int need_prot;
+
+    int mmu_idx;
+
+    Msr msr = tc->readIntReg(INTREG_MSR);
+    Lpcr lpcr = tc->readIntReg(INTREG_LPCR);
+
+    unsigned immu_idx, dmmu_idx;
+    dmmu_idx = msr.pr ? 0 : 1;
+    dmmu_idx |= msr.hv ? 4 : 0;
+    immu_idx = dmmu_idx;
+    immu_idx |= msr.ir ? 0 : 2;
+    dmmu_idx |= msr.dr ? 0 : 2;
+
+    enum {
+        HFLAGS_IMMU_IDX = 26, /* 26..28 -- the composite immu_idx */
+        HFLAGS_DMMU_IDX = 29, /* 29..31 -- the composite dmmu_idx */
+    };
+
+    uint32_t hflags = 0;
+    hflags |= immu_idx << HFLAGS_IMMU_IDX;
+    hflags |= dmmu_idx << HFLAGS_DMMU_IDX;
+
+    mmu_idx = hflags >> (mode == BaseMMU::Execute ? HFLAGS_IMMU_IDX : HFLAGS_DMMU_IDX) & 7;
+    //printf("mmu_idx = %d\n", mmu_idx);
+
+    std::pair<Addr, Fault> AddrTran;
+
+    exec_prot = walker->ppc_hash64_pte_noexec_guard(pte);
+    pp_prot = walker->ppc_hash64_pte_prot(mmu_idx, slb, pte);
+    amr_prot = walker->ppc_hash64_amr_prot(tc, pte);
+    prot = exec_prot & pp_prot & amr_prot;
+
+    need_prot = prot_for_access_type(mode);
+    if (need_prot & ~prot) {
+        /* Access right violation */
+        DPRINTF(PageTableWalker, "PTE access rejected\n");
+
+        if (mode == BaseMMU::Execute) {
+            int srr1 = 0;
+            if (PAGE_EXEC & ~exec_prot) {
+                /* Access violates noexec or guard */
+                srr1 |= SRR1_NOEXEC_GUARD;
+            } else if (PAGE_EXEC & ~pp_prot) {
+                /* Access violates access authority */
+                srr1 |= SRR1_PROTFAULT;
+            }
+            if (PAGE_EXEC & ~amr_prot) {
+                /* Access violates virt pg class key prot */
+                srr1 |= SRR1_IAMR;
+            }
+            //ppc_hash64_set_isi(cs, mmu_idx, slb->vsid, srr1);
+            fault = walker->prepareISI(tc, req, srr1);
+        } else {
+            int dsisr = 0;
+            if (need_prot & ~pp_prot) {
+                dsisr |= DSISR_PROTFAULT;
+            }
+            if (mode == BaseMMU::Write) {
+                dsisr |= DSISR_ISSTORE;
+            }
+            if (need_prot & ~amr_prot) {
+                dsisr |= DSISR_AMR;
+            }
+            //ppc_hash64_set_dsi(cs, mmu_idx, slb->vsid, eaddr, dsisr);
+            fault = walker->prepareDSI(tc, req, mode, dsisr);
+        }
+        endWalk();
+        return fault;
+    }
+
+    DPRINTF(PageTableWalker, "PTE access granted !\n");
+
+    /* 6. Update PTE referenced and changed bits if necessary */
+
+    if (!(pte.pte1 & HPTE64_R_R)) {
+        walker->ppc_hash64_set_r(tc, ptex, pte.pte1);
+    }
+    if (!(pte.pte1 & HPTE64_R_C)) {
+        if (mode == BaseMMU::Write) {
+            walker->ppc_hash64_set_c(tc, ptex, pte.pte1);
+        } else {
+            /*
+             * Treat the page as read-only for now, so that a later write
+             * will pass through this function again to set the C bit
+             */
+            prot &= ~PAGE_WRITE;
+        }
+    }
+
+    /* 7. Determine the real address from the PTE */
+
+    //*raddrp = deposit64(pte.pte1 & HPTE64_R_RPN, 0, apshift, vaddr);
+    //*protp = prot;
+    //*psizep = apshift;
+
+    fault = NoFault;
+    doWrite = true;
+    doEndWalk = true;
+    Addr paddr = deposit64(pte.pte1 & HPTE64_R_RPN, 0, apshift, eaddr);
+    DPRINTF(PageTableWalker,"paddr:0x%016lx\n", paddr);
+    req->setPaddr(paddr);
+    endWalk();
+
+    return fault;
 }
 
 bool
 Walker::WalkerState::recvPacket(PacketPtr pkt)
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
     assert(pkt->isResponse());
     assert(inflight);
-    assert(state == Waiting);
+    assert(state == WaitingHash0 || state == WaitingHash1);
     inflight--;
     if (squashed) {
         // if were were squashed, return true once inflight is zero and
@@ -1403,7 +1929,7 @@ Walker::WalkerState::recvPacket(PacketPtr pkt)
         PacketPtr write = NULL;
         read = pkt;
         timingFault = stepWalk(write);
-        state = Waiting;
+        state = WaitingHash0;
         assert(timingFault == NoFault || read == NULL);
         if (write) {
             writes.push_back(write);
@@ -1414,7 +1940,9 @@ Walker::WalkerState::recvPacket(PacketPtr pkt)
     }
     if (inflight == 0 && read == NULL && writes.size() == 0) {
         state = Ready;
-        nextState = Waiting;
+        nextState = WaitingHash0;
+        DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
         if (timingFault == NoFault) {
             /*
              * Finish the translation. Now that we know the right entry is
@@ -1439,6 +1967,8 @@ Walker::WalkerState::recvPacket(PacketPtr pkt)
 void
 Walker::WalkerState::sendPackets()
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
     //If we're already waiting for the port to become available, just return.
     if (retrying)
         return;

@@ -381,15 +381,13 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 //printf("MSR: %lx\n",(uint64_t)msr);
                 Fault fault = walker->start(tc, NULL, req, mode);
                 //Fault fault = NoFault;
-                paddr = req->getPaddr();
                 DPRINTF(TLB,
                     "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
                 if (fault != NoFault) {
                     DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                } else {
+                    fault = NoFault;
                 }
-
-                //trySnoopKernConsole(paddr, tc);
-                //trySnoopOpalConsole(paddr, tc);
 
                 return fault;
             }
@@ -403,16 +401,20 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                 //trySnoopOpalConsole(paddr, tc);
 
                 return NoFault;
-
             }
         }
         else{
             if (msr.dr){
-                Fault fault = walker->start(tc,NULL, req, mode);
+                Fault fault = walker->start(tc, NULL, req, mode);
+
                 //Fault fault = NoFault;
-                paddr = req->getPaddr();
                 DPRINTF(TLB,
                     "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
+                if (fault != NoFault) {
+                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                } else {
+                    fault = NoFault;
+                }
                 return fault;
             }
             else{
@@ -444,8 +446,68 @@ void
 TLB::translateTiming(const RequestPtr &req, ThreadContext *tc,
                      BaseMMU::Translation *translation, BaseMMU::Mode mode)
 {
-    assert(translation);
-    translation->finish(translateAtomic(req, tc, mode), req, tc, mode);
+    Addr paddr;
+    Addr vaddr = req->getVaddr();
+    //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+    vaddr &= 0x0fffffffffffffff;
+    if (FullSystem) {
+        Msr msr = tc->readIntReg(INTREG_MSR);
+        if (mode == BaseMMU::Execute) {
+            if (msr.ir){
+                //printf("MSR: %lx\n",(uint64_t)msr);
+                Fault fault = walker->start(tc, translation, req, mode);
+                //Fault fault = NoFault;
+                DPRINTF(TLB,
+                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
+                if (fault != NoFault) {
+                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                    translation->finish(fault, req, tc, mode);
+                } else {
+                    fault = NoFault;
+                    translation->markDelayed();
+                }
+
+                return;
+            }
+            else{
+                //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+                paddr = vaddr;
+                //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                req->setPaddr(paddr);
+                translation->finish(NoFault, req, tc, mode);
+
+                //trySnoopKernConsole(paddr, tc);
+                //trySnoopOpalConsole(paddr, tc);
+
+                return;
+            }
+        }
+        else{
+            if (msr.dr){
+                Fault fault = walker->start(tc, translation, req, mode);
+
+                //Fault fault = NoFault;
+                DPRINTF(TLB,
+                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
+                if (fault != NoFault) {
+                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                    translation->finish(fault, req, tc, mode);
+                } else {
+                    fault = NoFault;
+                    translation->markDelayed();
+                }
+                return;
+            }
+            else{
+                //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
+                paddr = vaddr;
+                //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                req->setPaddr(paddr);
+                translation->finish(NoFault, req, tc, mode);
+                return;
+            }
+        }
+    }
 }
 
 Fault

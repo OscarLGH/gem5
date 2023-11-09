@@ -79,82 +79,6 @@ namespace PowerISA
         friend class WalkerPort;
         WalkerPort port;
 
-        // State to track each walk of the page table
-        class WalkerState
-        {
-          friend class Walker;
-          private:
-            enum State
-            {
-                Ready,
-                Waiting,
-                Translate,
-            };
-
-          protected:
-            Walker *walker;
-            ThreadContext *tc;
-            RequestPtr req;
-            State state;
-            State nextState;
-            int level;
-            unsigned inflight;
-            TlbEntry entry;
-            PacketPtr read;
-            std::vector<PacketPtr> writes;
-            Fault timingFault;
-            BaseMMU::Translation * translation;
-            BaseMMU::Mode mode;
-            bool functional;
-            bool timing;
-            bool retrying;
-            bool started;
-            bool squashed;
-          public:
-            WalkerState(Walker * _walker, BaseMMU::Translation *_translation,
-                        const RequestPtr &_req, bool _isFunctional = false) :
-                walker(_walker), req(_req), state(Ready),
-                nextState(Ready), level(0), inflight(0),
-                translation(_translation),
-                functional(_isFunctional), timing(false),
-                retrying(false), started(false), squashed(false)
-            {
-            }
-            void initState(ThreadContext * _tc, BaseMMU::Mode _mode,
-                           bool _isTiming = false);
-            Fault startWalk();
-            Fault startFunctional(Addr &addr, unsigned &logBytes);
-            bool recvPacket(PacketPtr pkt);
-            unsigned numInflight() const;
-            bool isRetrying();
-            bool wasStarted();
-            bool isTiming();
-            void retry();
-            void squash();
-            std::string name() const {return walker->name();}
-
-          private:
-            void setupWalk(Addr vaddr);
-            Fault stepWalk(PacketPtr &write);
-            void sendPackets();
-            void endWalk();
-            Fault pageFault(bool present);
-        };
-
-        friend class WalkerState;
-        // State for timing and atomic accesses (need multiple per walker in
-        // the case of multiple outstanding requests in timing mode)
-        std::list<WalkerState *> currStates;
-        // State for functional accesses (only need one of these per walker)
-        WalkerState funcState;
-
-        struct WalkerSenderState : public Packet::SenderState
-        {
-            WalkerState * senderWalk;
-            WalkerSenderState(WalkerState * _senderWalk) :
-                senderWalk(_senderWalk) {}
-        };
-
       public:
         // Kick off the state machine.
         Fault start(ThreadContext * _tc, BaseMMU::Translation *translation,
@@ -164,6 +88,7 @@ namespace PowerISA
         Port &getPort(const std::string &if_name,
                       PortID idx=InvalidPortID) override;
 
+      class WalkerState;
       protected:
         // The TLB we're supposed to load.
         PowerISA::TLB * tlb;
@@ -535,6 +460,95 @@ namespace PowerISA
           void slbie_helper(ThreadContext * tc, Addr eaddr);
           Fault prepareSegInt(ThreadContext * tc, RequestPtr req,
                     BaseMMU::Mode mode);
+
+          Addr ppc_hash64_pteg_recv_search(ThreadContext * tc, Addr hash,
+                                     const PPCHash64SegmentPageSizes *sps,
+                                     Addr ptem,
+                                     ppc_hash_pte64_t *pte, unsigned *pshift, const ppc_hash_pte64_t *pteg);
+          Addr ppc_hash64_htab_primary_hash(ThreadContext *tc,
+                                     ppc_slb_t *slb, Addr eaddr);
+          Addr ppc_hash64_htab_secondary_hash(ThreadContext *tc,
+                                     ppc_slb_t *slb, Addr eaddr);
+          // State to track each walk of the page table
+        class WalkerState
+        {
+          friend class Walker;
+          private:
+            enum State
+            {
+                Ready,
+                WaitingHash0,
+                WaitingHash1,
+                Translate,
+            };
+
+          protected:
+            Walker *walker;
+            ThreadContext *tc;
+            RequestPtr req;
+            State state;
+            State nextState;
+            int level;
+            unsigned inflight;
+            Walker::ppc_slb_t *slb_e;
+            TlbEntry entry;
+            PacketPtr read;
+            std::vector<PacketPtr> writes;
+            Fault timingFault;
+            BaseMMU::Translation * translation;
+            BaseMMU::Mode mode;
+            bool functional;
+            bool timing;
+            bool retrying;
+            bool started;
+            bool squashed;
+          public:
+            WalkerState(Walker * _walker, BaseMMU::Translation *_translation,
+                        const RequestPtr &_req, bool _isFunctional = false) :
+                walker(_walker), req(_req), state(Ready),
+                nextState(Ready), level(0), inflight(0),
+                translation(_translation),
+                functional(_isFunctional), timing(false),
+                retrying(false), started(false), squashed(false)
+            {
+            }
+            void initState(ThreadContext * _tc, BaseMMU::Mode _mode,
+                           bool _isTiming = false);
+            Fault startWalk();
+            Fault startFunctional(Addr &addr, unsigned &logBytes);
+            bool recvPacket(PacketPtr pkt);
+            unsigned numInflight() const;
+            bool isRetrying();
+            bool wasStarted();
+            bool isTiming();
+            void retry();
+            void squash();
+            std::string name() const {return walker->name();}
+
+          private:
+            Fault setupWalk(Addr vaddr);
+            Fault stepWalk(PacketPtr &write);
+            void sendPackets();
+            void endWalk();
+            Fault pageFault(bool present);
+
+            void ppc_hash64_send_hpteg_request(ThreadContext * tc,
+                                             Addr ptex);
+        };
+
+        friend class WalkerState;
+        // State for timing and atomic accesses (need multiple per walker in
+        // the case of multiple outstanding requests in timing mode)
+        std::list<WalkerState *> currStates;
+        // State for functional accesses (only need one of these per walker)
+        WalkerState funcState;
+
+        struct WalkerSenderState : public Packet::SenderState
+        {
+            WalkerState * senderWalk;
+            WalkerSenderState(WalkerState * _senderWalk) :
+                senderWalk(_senderWalk) {}
+        };
     };
 } // namespace PowerISA
 } // namespace gem5
