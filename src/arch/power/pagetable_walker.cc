@@ -115,20 +115,14 @@ Walker::prepareDSI(ThreadContext * tc, RequestPtr req,
     dsisr = (dsisr & (~(DSISR_MASK))) | BitMask;
     if (mode == BaseMMU::Write)
       dsisr = dsisr | ISSTORE;
-    tc->setIntReg(INTREG_DSISR, dsisr);
-    tc->setIntReg(INTREG_DAR, req->getVaddr());
-    return std::make_shared<DataStorageInterrupt>();
+    return std::make_shared<DataStorageFault>(req->getVaddr(), dsisr);
 }
 
 Fault
 Walker::prepareISI(ThreadContext * tc, RequestPtr req,
                      uint64_t BitMask)
 {
-    Msr msr = tc->readIntReg(INTREG_MSR);
-    //here unsetting SRR1 bits 33-36 and 42-47 according to ISA
-    uint64_t srr1 = ((msr & unsetMask(31, 27)) & unsetMask(22,16)) | BitMask;
-    tc->setIntReg(INTREG_SRR1, srr1);
-    return std::make_shared<InstrStorageInterrupt>();
+    return std::make_shared<InstrStorageFault>(BitMask);
 }
 
 Fault
@@ -146,10 +140,9 @@ Walker::prepareSegInt(ThreadContext * tc, RequestPtr req,
                     BaseMMU::Mode mode)
 {
     if (mode != BaseMMU::Execute) {
-        tc->setIntReg(INTREG_DAR, req->getVaddr());
-        return std::make_shared<DataSegmentInterrupt>();
+        return std::make_shared<DataSegmentFault>(req->getVaddr());
     } else {
-        return std::make_shared<InstrSegmentInterrupt>();
+        return std::make_shared<InstrSegmentFault>();
     }
 }
 

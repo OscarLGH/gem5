@@ -94,6 +94,7 @@ class PowerFault : public FaultBase
 {
   protected:
     FaultName _name;
+    const PCState pcState;
 
     PowerFault(FaultName name)
         : _name(name)
@@ -105,66 +106,7 @@ class PowerFault : public FaultBase
     {
         return _name;
     }
-};
 
-
-class UnimplementedOpcodeFault : public PowerFault
-{
-  public:
-    UnimplementedOpcodeFault()
-        : PowerFault("Unimplemented Opcode")
-    {
-    }
-
-    void invoke(ThreadContext *tc, const StaticInstPtr &inst =
-                nullStaticInstPtr) override;
-};
-
-
-class MachineCheckFault : public PowerFault
-{
-  public:
-    MachineCheckFault()
-        : PowerFault("Machine Check")
-    {
-    }
-};
-
-
-class AlignmentFault : public PowerFault
-{
-  private:
-    Addr vaddr;
-  public:
-    AlignmentFault(Addr va)
-        : PowerFault("Alignment"), vaddr(va)
-    {
-    }
-
-    void invoke(ThreadContext *tc, const StaticInstPtr &inst =
-                nullStaticInstPtr) override;
-};
-
-
-class TrapFault : public PowerFault
-{
-  public:
-    TrapFault()
-        : PowerFault("Trap")
-    {
-    }
-
-    void invoke(ThreadContext *tc, const StaticInstPtr &inst =
-                nullStaticInstPtr) override;
-};
-
-class PowerInterrupt : public PowerFault
-{
-  public:
-    PowerInterrupt()
-        : PowerFault("Interrupt")
-    {
-    }
     virtual void updateMsr(ThreadContext * tc)
       {
         Msr msr = tc->readIntReg(INTREG_MSR);
@@ -203,10 +145,62 @@ class PowerInterrupt : public PowerFault
     }
 };
 
-class ResetInterrupt : public PowerInterrupt
+
+class UnimplementedOpcodeFault : public PowerFault
+{
+  public:
+    UnimplementedOpcodeFault()
+        : PowerFault("Unimplemented Opcode")
+    {
+    }
+
+    void invoke(ThreadContext *tc, const StaticInstPtr &inst =
+                nullStaticInstPtr) override;
+};
+
+
+class MachineCheckInterrupt : public PowerFault
+{
+  public:
+    MachineCheckInterrupt()
+        : PowerFault("Machine Check")
+    {
+    }
+};
+
+
+class AlignmentFault : public PowerFault
+{
+  private:
+    Addr vaddr;
+  public:
+    AlignmentFault(Addr va)
+        : PowerFault("Alignment"), vaddr(va)
+    {
+    }
+
+    void invoke(ThreadContext *tc, const StaticInstPtr &inst =
+                nullStaticInstPtr) override;
+};
+
+
+class TrapFault : public PowerFault
+{
+  public:
+    TrapFault()
+        : PowerFault("Trap")
+    {
+    }
+
+    void invoke(ThreadContext *tc, const StaticInstPtr &inst =
+                nullStaticInstPtr) override;
+};
+
+class ResetInterrupt : public PowerFault
 {
   public:
     ResetInterrupt()
+      : PowerFault("ResetInterrupt")
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
@@ -217,12 +211,12 @@ class ResetInterrupt : public PowerInterrupt
       uint64_t powersaving = tc->readIntReg(INTREG_PMC6);
       uint64_t cause = tc->readIntReg(INTREG_PMC5);
       if (powersaving == 1) {
-        PowerInterrupt::updateSRR1(tc, SRR1_WS_NOLOSS | cause);
-        PowerInterrupt::updateMsr(tc);
+        PowerFault::updateSRR1(tc, SRR1_WS_NOLOSS | cause);
+        PowerFault::updateMsr(tc);
         tc->setIntReg(INTREG_PMC6, 0);
       } else {
-        PowerInterrupt::updateSRR1(tc);
-        PowerInterrupt::updateMsr(tc);
+        PowerFault::updateSRR1(tc);
+        PowerFault::updateMsr(tc);
       }
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(SystemResetPCSet,
@@ -232,10 +226,11 @@ class ResetInterrupt : public PowerInterrupt
     }
 };
 
-class DirectExternalInterrupt : public PowerInterrupt
+class DirectExternalInterrupt : public PowerFault
 {
   public:
     DirectExternalInterrupt()
+      : PowerFault("DirectExternalInterrupt")
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
@@ -247,16 +242,16 @@ class DirectExternalInterrupt : public PowerInterrupt
 
       if (lpcr.lpes){
         tc->setIntReg(INTREG_SRR0 , tc->instAddr());
-        PowerInterrupt::updateSRR1(tc);
-        PowerInterrupt::updateMsr(tc);
+        PowerFault::updateSRR1(tc);
+        PowerFault::updateMsr(tc);
         Msr msr =  tc->readIntReg(INTREG_MSR);
         msr.ri = 0;
         tc->setIntReg(INTREG_MSR, msr);
       }
       else{
         tc->setIntReg(INTREG_HSRR0 , tc->instAddr());
-        PowerInterrupt::updateHSRR1(tc);
-        PowerInterrupt::updateMsr(tc);
+        PowerFault::updateHSRR1(tc);
+        PowerFault::updateMsr(tc);
         Msr msr =  tc->readIntReg(INTREG_MSR);
         msr.hv = 1;
         tc->setIntReg(INTREG_MSR, msr);
@@ -270,18 +265,19 @@ class DirectExternalInterrupt : public PowerInterrupt
     }
 };
 
-class PriDoorbellInterrupt : public PowerInterrupt
+class PriDoorbellInterrupt : public PowerFault
 {
   public:
     PriDoorbellInterrupt()
+      : PowerFault("PriDoorbellInterrupt")
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
-      PowerInterrupt::updateSRR1(tc);
-      PowerInterrupt::updateMsr(tc);
+      PowerFault::updateSRR1(tc);
+      PowerFault::updateMsr(tc);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(PriDoorbellPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
@@ -290,10 +286,11 @@ class PriDoorbellInterrupt : public PowerInterrupt
     }
 };
 
-class HypDoorbellInterrupt : public PowerInterrupt
+class HypDoorbellInterrupt : public PowerFault
 {
   public:
     HypDoorbellInterrupt()
+      : PowerFault("HyperDoorbellInterrupt")
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
@@ -301,8 +298,8 @@ class HypDoorbellInterrupt : public PowerInterrupt
     {
       DPRINTF(Fault, "In Hypervisor interrupt\n");
       tc->setIntReg(INTREG_HSRR0 , tc->instAddr());
-      PowerInterrupt::updateHSRR1(tc);
-      PowerInterrupt::updateMsr(tc);
+      PowerFault::updateHSRR1(tc);
+      PowerFault::updateMsr(tc);
       Msr msr = tc->readIntReg(INTREG_MSR);
       msr.hv = 1;
       tc->setIntReg(INTREG_MSR, msr);
@@ -318,19 +315,27 @@ class HypDoorbellInterrupt : public PowerInterrupt
 //Instruction Storage Interrupt. So, no need to
 //Update here.
 
-class InstrStorageInterrupt : public PowerInterrupt
+class InstrStorageFault : public PowerFault
 {
+private:
+  uint64_t srr;
 public:
-  InstrStorageInterrupt()
+  InstrStorageFault(uint64_t _srr)
+     : PowerFault("InstrStorageFault"), srr(_srr)
   {
   }
   virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
-      PowerInterrupt::updateMsr(tc);
+      DPRINTF(Fault, "InstrStorageFault.pc = %llx.\n",
+        tc->pcState().instAddr());
       //tc->pcState(InstrStoragePCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
+      //here unsetting SRR1 bits 33-36 and 42-47 according to ISA
+      uint64_t srr1 = ((msr & unsetMask(31, 27)) & unsetMask(22,16)) | srr;
+      tc->setIntReg(INTREG_SRR1, srr1);
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      PowerFault::updateMsr(tc);
       PCState *pc = new PCState(InstrStoragePCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
       tc->pcState(*pc);
@@ -338,10 +343,11 @@ public:
     }
 };
 
-class InstrSegmentInterrupt : public PowerInterrupt
+class InstrSegmentFault : public PowerFault
 {
 public:
-  InstrSegmentInterrupt()
+  InstrSegmentFault()
+    : PowerFault("InstrSegmentFault")
   {
   }
   virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
@@ -350,7 +356,7 @@ public:
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       DPRINTF(Fault, "InstrSegmentFault.pc = %llx.\n",
         tc->pcState().instAddr());
-      PowerInterrupt::updateMsr(tc);
+      PowerFault::updateMsr(tc);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(InstrSegmentPCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
@@ -360,21 +366,27 @@ public:
 };
 
 
-class DataStorageInterrupt :public PowerInterrupt
+class DataStorageFault :public PowerFault
 {
+private:
+  uint64_t dar;
+  uint64_t dsisr;
 public:
-  DataStorageInterrupt()
+  DataStorageFault(uint64_t _dar, uint64_t _dsisr)
+    : PowerFault("DataStorageFault"), dar(_dar), dsisr(_dsisr)
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
-      PowerInterrupt::updateSRR1(tc);
-      PowerInterrupt::updateMsr(tc);
       DPRINTF(Fault, "DataStorageFault.pc = %llx addr = %llx DSISR = %llx\n",
         tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR), tc->readIntReg(INTREG_DSISR));
       //tc->pcState(DataStoragePCSet);
+      tc->setIntReg(INTREG_DSISR, dsisr);
+      tc->setIntReg(INTREG_DAR, dar);
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      PowerFault::updateSRR1(tc);
+      PowerFault::updateMsr(tc);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(DataStoragePCSet,
         msr.le ? ByteOrder::little : ByteOrder::big);
@@ -383,18 +395,22 @@ public:
     }
 };
 
-class DataSegmentInterrupt :public PowerInterrupt
+class DataSegmentFault :public PowerFault
 {
+private:
+  uint64_t dar;
 public:
-  DataSegmentInterrupt()
+  DataSegmentFault(uint64_t _dar)
+    : PowerFault("DataSegmentFault"), dar(_dar)
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
+      tc->setIntReg(INTREG_DAR, dar);
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
-      PowerInterrupt::updateSRR1(tc);
-      PowerInterrupt::updateMsr(tc);
+      PowerFault::updateSRR1(tc);
+      PowerFault::updateMsr(tc);
       DPRINTF(Fault, "DataSegmentFault.pc = %llx addr = %llx\n",
         tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR));
       //tc->pcState(DataStoragePCSet);
@@ -407,18 +423,19 @@ public:
 };
 
 //TODO: Need to add Floating point and TM Bad thing fault handler
-class ProgramInterrupt : public PowerInterrupt
+class ProgramInterrupt : public PowerFault
 {
   public:
     ProgramInterrupt()
+      : PowerFault("ProgramFault")
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr ,uint64_t bitSet = 0)
     {
       tc->setIntReg(INTREG_SRR0, tc->instAddr());
-      PowerInterrupt::updateSRR1(tc, bitSet);
-      PowerInterrupt::updateMsr(tc);
+      PowerFault::updateSRR1(tc, bitSet);
+      PowerFault::updateMsr(tc);
       //tc->pcState(ProgramPCSet);
       //printf("Program Fault! pc = %llx\n", tc->pcState().instAddr());
       Msr msr = tc->readIntReg(INTREG_MSR);
@@ -468,10 +485,11 @@ class ProgramPriInterrupt : public ProgramInterrupt
     }
 };
 
-class SystemCallInterrupt : public PowerInterrupt
+class SystemCallInterrupt : public PowerFault
 {
   public:
     SystemCallInterrupt()
+      : PowerFault("SyscallFault")
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
@@ -479,8 +497,8 @@ class SystemCallInterrupt : public PowerInterrupt
     {
       //TODO: Right now it not handle case when LEV=0.
       tc->setIntReg(INTREG_SRR0 , tc->instAddr() + 4);
-      PowerInterrupt::updateSRR1(tc);
-      PowerInterrupt::updateMsr(tc);
+      PowerFault::updateSRR1(tc);
+      PowerFault::updateMsr(tc);
       //tc->pcState(SystemCallPCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(SystemCallPCSet,
@@ -490,10 +508,11 @@ class SystemCallInterrupt : public PowerInterrupt
     }
 };
 
-class DecrementerInterrupt : public PowerInterrupt
+class DecrementerInterrupt : public PowerFault
 {
   public:
     DecrementerInterrupt()
+      : PowerFault("DecrementerInterrupt")
     {
     }
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
@@ -503,8 +522,8 @@ class DecrementerInterrupt : public PowerInterrupt
         tc->pcState().instAddr());
       // Refer Power ISA Manual v3.0B Book-III, section 6.5.11
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
-      PowerInterrupt::updateSRR1(tc);
-      PowerInterrupt::updateMsr(tc);
+      PowerFault::updateSRR1(tc);
+      PowerFault::updateMsr(tc);
       //tc->pcState(DecrementerPCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(DecrementerPCSet,
