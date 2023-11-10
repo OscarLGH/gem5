@@ -380,9 +380,6 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
             if (msr.ir){
                 //printf("MSR: %lx\n",(uint64_t)msr);
                 Fault fault = walker->start(tc, NULL, req, mode);
-                //Fault fault = NoFault;
-                DPRINTF(TLB,
-                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
                 if (fault != NoFault) {
                     DPRINTF(TLB, "translation fault:%s.\n", fault->name());
                 } else {
@@ -407,9 +404,6 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
             if (msr.dr){
                 Fault fault = walker->start(tc, NULL, req, mode);
 
-                //Fault fault = NoFault;
-                DPRINTF(TLB,
-                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
                 if (fault != NoFault) {
                     DPRINTF(TLB, "translation fault:%s.\n", fault->name());
                 } else {
@@ -457,10 +451,8 @@ TLB::translateTiming(const RequestPtr &req, ThreadContext *tc,
                 //printf("MSR: %lx\n",(uint64_t)msr);
                 Fault fault = walker->start(tc, translation, req, mode);
                 //Fault fault = NoFault;
-                DPRINTF(TLB,
-                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
                 if (fault != NoFault) {
-                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                    printf("translation fault:%s.\n", fault->name());
                     translation->finish(fault, req, tc, mode);
                 } else {
                     fault = NoFault;
@@ -486,9 +478,6 @@ TLB::translateTiming(const RequestPtr &req, ThreadContext *tc,
             if (msr.dr){
                 Fault fault = walker->start(tc, translation, req, mode);
 
-                //Fault fault = NoFault;
-                DPRINTF(TLB,
-                    "Translated vaddr %#x -> paddr %#x.\n", vaddr, paddr);
                 if (fault != NoFault) {
                     DPRINTF(TLB, "translation fault:%s.\n", fault->name());
                     translation->finish(fault, req, tc, mode);

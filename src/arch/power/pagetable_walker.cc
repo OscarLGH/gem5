@@ -272,15 +272,35 @@ Walker::start(ThreadContext * _tc, BaseMMU::Translation *_translation,
     newState->initState(_tc, _mode, sys->isTimingMode());
     if (currStates.size()) {
         assert(newState->isTiming());
-        DPRINTF(PageTableWalker, "Walks in progress: %d\n", currStates.size());
+        DPRINTF(PageTableWalker, "Walks in progress: %d vaddr:%llx pushed back.\n", currStates.size(), newState->req->getVaddr());
         currStates.push_back(newState);
+        DPRINTF(PageTableWalker,
+            "currStates->size() = %d.\n", currStates.size());
         return NoFault;
     } else {
         currStates.push_back(newState);
+        DPRINTF(PageTableWalker, "currStates.size() = %d: %d\n", currStates.size());
         Fault fault = newState->startWalk();
         if (!newState->isTiming()) {
             currStates.pop_front();
+            DPRINTF(PageTableWalker,
+            "currStates->size() = %d.\n", currStates.size());
             delete newState;
+        } else if (fault != NoFault) {
+            currStates.pop_front();
+            DPRINTF(PageTableWalker,
+            "currStates->size() = %d.\n", currStates.size());
+            /*
+            _translation->finish(
+            fault,
+            newState->req, newState->tc, newState->mode);
+            */
+            delete newState;
+            if (currStates.size() && !startWalkWrapperEvent.scheduled()) {
+                // delay sending any new requests until we are finished
+                // with the responses
+                schedule(startWalkWrapperEvent, clockEdge());
+            }
         }
         return fault;
     }
@@ -1459,6 +1479,8 @@ Walker::recvTimingResp(PacketPtr pkt)
             WalkerState * walkerState = *(iter);
             if (walkerState == senderWalk) {
                 iter = currStates.erase(iter);
+                DPRINTF(PageTableWalker,
+                "currStates->size() = %d.\n", currStates.size());
                 break;
             }
         }
@@ -1530,11 +1552,19 @@ Walker::WalkerState::initState(ThreadContext * _tc,
 void
 Walker::startWalkWrapper()
 {
+    DPRINTF(PageTableWalker,
+            "%s,%d.\n", __FUNCTION__, __LINE__);
     unsigned num_squashed = 0;
     WalkerState *currState = currStates.front();
+    if (currState) {
+        DPRINTF(PageTableWalker,
+            "currState->wasStarted() = %d.\n", currState->wasStarted());
+    }
     while ((num_squashed < numSquashable) && currState &&
         currState->translation->squashed()) {
         currStates.pop_front();
+        DPRINTF(PageTableWalker,
+            "currStates->size() = %d.\n", currStates.size());
         num_squashed++;
 
         DPRINTF(PageTableWalker, "Squashing table walk for address %#x\n",
@@ -1560,8 +1590,22 @@ Walker::startWalkWrapper()
         else
             currState = NULL;
     }
-    if (currState && !currState->wasStarted())
-        currState->startWalk();
+    if (currState && !currState->wasStarted()) {
+        Fault fault = currState->startWalk();
+        if (fault != NoFault) {
+            currState->translation->finish(
+            fault,
+            currState->req, currState->tc, currState->mode);
+            currStates.pop_front();
+            DPRINTF(PageTableWalker,
+            "currStates->size() = %d.\n", currStates.size());
+            if (currStates.size() && !startWalkWrapperEvent.scheduled()) {
+                // delay sending any new requests until we are finished
+                // with the responses
+                schedule(startWalkWrapperEvent, clockEdge());
+            }
+        }
+    }
 }
 
 Fault
@@ -1572,11 +1616,14 @@ Walker::WalkerState::startWalk()
     Fault fault = NoFault;
     assert(!started);
     started = true;
-    fault = setupWalk(req->getVaddr());
     DPRINTF(PageTableWalker,
             "startWalk for translating addr:%llx.\n", req->getVaddr());
+    fault = setupWalk(req->getVaddr());
     if (fault != NoFault) {
-        nextState = Ready;
+        DPRINTF(PageTableWalker,
+            "fault occurs.\n");
+        state = Ready;
+        nextState = WaitingHash0;
         return fault;
     }
 
@@ -1972,10 +2019,15 @@ Walker::WalkerState::sendPackets()
         read = NULL;
         inflight++;
         if (!walker->sendTiming(this, pkt)) {
+            DPRINTF(PageTableWalker,
+            "send request for paddr %llx failed.\n", pkt->getAddr());
             retrying = true;
             read = pkt;
             inflight--;
             return;
+        } else {
+            DPRINTF(PageTableWalker,
+            "request for paddr %llx sent.\n", pkt->getAddr());
         }
     }
     //Send off as many of the writes as we can.

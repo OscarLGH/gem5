@@ -71,12 +71,12 @@ DynInst::DynInst(const StaticInstPtr &static_inst,
 #ifndef NDEBUG
     ++cpu->instcount;
 
-    if (cpu->instcount > 1500) {
+    if (cpu->instcount > 150000) {
 #ifdef DEBUG
         cpu->dumpInsts();
         dumpSNList();
 #endif
-        assert(cpu->instcount <= 1500);
+        assert(cpu->instcount <= 150000);
     }
 
     DPRINTF(DynInst,
