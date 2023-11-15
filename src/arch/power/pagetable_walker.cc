@@ -1926,6 +1926,11 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
         }
     }
 
+    /* Check Cache attribute.*/
+    if (pte.pte1 & HPTE64_R_I) {
+        req->setFlags(Request::UNCACHEABLE | Request::STRICT_ORDER);
+    }
+
     /* 7. Determine the real address from the PTE */
 
     //*raddrp = deposit64(pte.pte1 & HPTE64_R_RPN, 0, apshift, vaddr);

@@ -223,7 +223,7 @@ decode PO default Unknown::unknown() {
             MSR = insertBits(MSR,14,6,bits(HSRR1,14,6));
             MSR = insertBits(MSR,3,0,bits(HSRR1,3,0));
             NIA = HSRR0 & -4ULL;
-        }});
+        }}, [ IsNonSpeculative, IsSerializeAfter ]);
 
         format CondLogicOp {
             193: crxor({{
@@ -414,8 +414,7 @@ decode PO default Unknown::unknown() {
         4: IntTrapOp::tw({{ Ra_sw }}, {{ Rb_sw }});
 
         format LoadIndexOp {
-            20: lwarx({{ Rt = Mem_uw; }},
-                      {{ Rsv = 1; RsvLen = 4; RsvAddr = EA; }});
+            20: lwarx({{ Rt = Mem_uw; Rsv = 1; RsvLen = 4; RsvAddr = EA; }});
 
             21: ldx({{ Rt = Mem; }});
             23: lwzx({{ Rt = Mem_uw; }});
@@ -764,7 +763,7 @@ decode PO default Unknown::unknown() {
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slbie_helper(xc->tcBase(), Rb);
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->slbie_helper(xc->tcBase(), Rb);
-            }});
+            }}, [IsNonSpeculative]);
             498: IntLogicOp::slbia({{
                 IH;
                 for (int i = 1; i < 64; i++) {
@@ -773,7 +772,7 @@ decode PO default Unknown::unknown() {
                     dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[i].esid = 0;
                 }
-            }});
+            }}, [IsNonSpeculative]);
             402: IntLogicOp::slbmte({{
                 int index = Rb & 0x7ff;
                 dynamic_cast<PowerISA::TLB *>(
@@ -781,7 +780,7 @@ decode PO default Unknown::unknown() {
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
                 //printf("slbmte, index = %d ESID = %llx VSID = %llx\n", Rb & 0x7ff, Rb, Rs);
-            }});
+            }}, [IsNonSpeculative]);
             851: IntLogicOp::slbmfev({{ Rt;Rb;}});
             915: IntLogicOp::slbmfee({{ Rt;Rb;}});
             979: IntLogicOp::slbfee({{ Rt;Rb;}});

@@ -452,7 +452,7 @@ TLB::translateTiming(const RequestPtr &req, ThreadContext *tc,
                 Fault fault = walker->start(tc, translation, req, mode);
                 //Fault fault = NoFault;
                 if (fault != NoFault) {
-                    printf("translation fault:%s.\n", fault->name());
+                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
                     translation->finish(fault, req, tc, mode);
                 } else {
                     fault = NoFault;

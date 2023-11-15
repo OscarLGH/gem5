@@ -161,16 +161,16 @@ def template StoreExecute {{
         }
 
         if (fault == NoFault) {
+            %(update_code)s;
+            %(op_wb)s;
+        }
+
+        if (fault == NoFault) {
             fault = msr.le ?
                     writeMemAtomicLE(xc, traceData, Mem, EA, memAccessFlags,
                                      NULL) :
                     writeMemAtomicBE(xc, traceData, Mem, EA, memAccessFlags,
                                      NULL);
-        }
-
-        if (fault == NoFault) {
-            %(update_code)s;
-            %(op_wb)s;
         }
 
         return fault;
@@ -191,12 +191,12 @@ def template StoreInitiateAcc {{
         %(ea_code)s;
 
         if (fault == NoFault) {
-            %(update_code)s;
-            %(op_wb)s;
+            %(memacc_code)s;
         }
 
         if (fault == NoFault) {
-            %(memacc_code)s;
+            %(update_code)s;
+            %(op_wb)s;
         }
 
         if (fault == NoFault) {
@@ -216,19 +216,7 @@ def template StoreCompleteAcc {{
     Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
                                       Trace::InstRecord *traceData) const
     {
-        GEM5_VAR_USED Addr EA;
         Fault fault = NoFault;
-
-        %(op_decl)s;
-        EA = pkt->req->getVaddr();
-        %(op_rd)s;
-
-        // Need to write back any potential address register update
-        if (fault == NoFault) {
-            %(update_code)s;
-            %(op_wb)s;
-        }
-
         return fault;
     }
 }};
