@@ -58,9 +58,12 @@ namespace PowerISA {
 
 class Interrupts : public BaseInterrupts
 {
+  public:
+    unsigned long timebase_counter;
+    unsigned long decrement_counter;
+    unsigned long timebase_divider;
   private:
     unsigned long inner_counter;
-    unsigned long timebase_divider;
   protected:
     std::bitset<NumInterruptLevels> interrupts;
 
@@ -68,7 +71,8 @@ class Interrupts : public BaseInterrupts
     using Params = PowerInterruptsParams;
 
     Interrupts(const Params &p) : BaseInterrupts(p), interrupts(0),
-        inner_counter(0), timebase_divider(1) {}
+        timebase_counter(0), decrement_counter(0),
+        timebase_divider(1), inner_counter(0) {}
 
     void
     post(int int_num, int index)
@@ -101,17 +105,13 @@ class Interrupts : public BaseInterrupts
         Msr msr = tc->readIntReg(INTREG_MSR);
         int powersaving = tc->readIntReg(INTREG_PMC6);
 
-        if (0 && inner_counter % timebase_divider == 0) {
-            tc->setIntReg(INTREG_TB , tc->readIntReg(INTREG_TB) + 1);
-            tc->setIntReg(INTREG_VTB , tc->readIntReg(INTREG_VTB) + 1);
-            tc->setIntReg(INTREG_TBU , tc->readIntReg(INTREG_TB) >> 32);
-            tc->setIntReg(INTREG_TBL , tc->readIntReg(INTREG_TB) & 0xffffffff);
-            tc->setIntReg(INTREG_TBU40 , tc->readIntReg(INTREG_TB) >> 24);
-            if (tc->readIntReg(INTREG_DEC) != 0) {
-                //DPRINTF(Interrupt, "DEC = %llx.\n", tc->readIntReg(INTREG_DEC));
-                tc->setIntReg(INTREG_DEC , tc->readIntReg(INTREG_DEC) - 1);
+        if (inner_counter % timebase_divider == 0) {
+            timebase_counter++;
+
+            if (decrement_counter != 0) {
+                decrement_counter--;
             } else {
-                tc->setIntReg(INTREG_DEC, 0xffffffffU);
+                decrement_counter = 0xffffffffULL;
                 if (powersaving) {
                     tc->setIntReg(INTREG_PMC5, Decrementer);
                 } else {

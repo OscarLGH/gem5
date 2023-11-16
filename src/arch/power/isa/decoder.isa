@@ -1194,7 +1194,12 @@ decode PO default Unknown::unknown() {
                 0x104: mfctrl({{ Rt = CTRL; }});
                 0x118: mfupmc6r({{Rt = PMC6;}});
                 0x120: mfctr({{ Rt = CTR; }});
-                0x188: mftb({{ Rt = TB; }});
+                0x188: mftb({{
+                    auto ic = dynamic_cast<PowerISA::Interrupts *>(
+                    xc->tcBase()->getCpuPtr()->getInterruptController(0));
+                    TB = ic->timebase_counter;
+                    Rt = TB;
+                }});
                 0x1A8: mftbu({{ Rt = TBU; }});
                 0x1b8: mfsdar({{Rt = SDAR; }});
                 0x1f9: mftar({{Rt = TAR;}});
@@ -1222,7 +1227,12 @@ decode PO default Unknown::unknown() {
                 0x285: mfdawr0({{ Rt = DAWR0; }});
                 0x289: mfspurr({{Rt = SPURR;}}, [ IsPrivileged ]);
                 0x2a9: mfpurr({{Rt = PURR;}}, [ IsPrivileged ]);
-                0x2C0: mfdec({{ Rt = DEC; }});
+                0x2C0: mfdec({{
+                    auto ic = dynamic_cast<PowerISA::Interrupts *>(
+                    xc->tcBase()->getCpuPtr()->getInterruptController(0));
+                    DEC = ic->decrement_counter;
+                    Rt = DEC;
+                }});
                 0x2c9: mfhdec({{Rt = HDEC;}});
                 0x2fa: mfpsscr({{Rt = PSSCR;}});
                 0x320: mfsdr1({{Rt = SDAR; }});
@@ -1304,7 +1314,12 @@ decode PO default Unknown::unknown() {
                 0x285: mtdawr0({{DAWR0 = Rs;}});
                 0x289: mtspurr({{SPURR = Rs;}});
                 0x2a9: mtpurr({{PURR = Rs;}});
-                0x2C0: mtdec({{ DEC = Rs; }});
+                0x2C0: mtdec({{
+                    auto ic = dynamic_cast<PowerISA::Interrupts *>(
+                    xc->tcBase()->getCpuPtr()->getInterruptController(0));
+                    ic->decrement_counter = Rs;
+                    DEC = Rs;
+                }});
                 0x2c9: mthdec({{HDEC = Rs;}});
                 0x2fa: mtpsscr({{PSSCR = Rs;}});
                 0x304: mtctrl({{ CTRL = Rs; }});

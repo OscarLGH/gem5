@@ -32,6 +32,7 @@
 #define __ARCH_POWER_ISA_HH__
 
 #include "arch/generic/isa.hh"
+#include "arch/power/interrupts.hh"
 #include "arch/power/regs/misc.hh"
 #include "arch/power/types.hh"
 #include "base/logging.hh"
