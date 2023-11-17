@@ -64,6 +64,7 @@ class Interrupts : public BaseInterrupts
     unsigned long timebase_divider;
   private:
     unsigned long inner_counter;
+    unsigned int handled_intr;
   protected:
     std::bitset<NumInterruptLevels> interrupts;
 
@@ -72,7 +73,7 @@ class Interrupts : public BaseInterrupts
 
     Interrupts(const Params &p) : BaseInterrupts(p), interrupts(0),
         timebase_counter(0), decrement_counter(0),
-        timebase_divider(1), inner_counter(0) {}
+        timebase_divider(32), inner_counter(0) {}
 
     void
     post(int int_num, int index)
@@ -86,7 +87,7 @@ class Interrupts : public BaseInterrupts
     void
     clear(int int_num, int index)
     {
-        DPRINTF(Interrupt, "Interrupt %d: cleared.\n", int_num);
+        //DPRINTF(Interrupt, "Interrupt %d: cleared.\n", int_num);
         if (int_num < 0 || int_num >= NumInterruptLevels)
             panic("int_num out of bounds for fun CLEAR%d\n",int_num);
         interrupts[int_num] = 0;
@@ -103,7 +104,7 @@ class Interrupts : public BaseInterrupts
     {
         inner_counter++;
         Msr msr = tc->readIntReg(INTREG_MSR);
-        int powersaving = tc->readIntReg(INTREG_PMC6);
+        int powersaving = 0;
 
         if (inner_counter % timebase_divider == 0) {
             timebase_counter++;
@@ -147,23 +148,28 @@ class Interrupts : public BaseInterrupts
     {
         //assert(checkInterrupts());
         if (interrupts[SystemReset]) {
-            clear(SystemReset,0);
+            //clear(SystemReset,0);
+            handled_intr = SystemReset;
             return std::make_shared<ResetInterrupt>();
         }
         if (interrupts[Decrementer]) {
-            clear(Decrementer,0);
+            //clear(Decrementer,0);
+            handled_intr = Decrementer;
             return std::make_shared<DecrementerInterrupt>();
         }
         else if (interrupts[DirPriDoorbell]) {
-            clear(DirPriDoorbell,0);
+            //clear(DirPriDoorbell,0);
+            handled_intr = DirPriDoorbell;
             return std::make_shared<PriDoorbellInterrupt>();
         }
         else if (interrupts[DirHypDoorbell]) {
-            clear(DirHypDoorbell,0);
+            //clear(DirHypDoorbell,0);
+            handled_intr = DirHypDoorbell;
             return std::make_shared<HypDoorbellInterrupt>();
         }
         else if (interrupts[DirectExt]){
-            clear(DirectExt,0);
+            handled_intr = DirectExt;
+            //clear(DirectExt,0);
             return std::make_shared<DirectExternalInterrupt>();
         }
 
@@ -173,6 +179,7 @@ class Interrupts : public BaseInterrupts
     void
     updateIntrInfo()
     {
+        clear(handled_intr, 0);
     }
 };
 

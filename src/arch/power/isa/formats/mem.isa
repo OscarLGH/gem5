@@ -151,6 +151,7 @@ def template StoreExecute {{
         Addr EA;
         Fault fault = NoFault;
         Msr msr = xc->tcBase()->readIntReg(INTREG_MSR);
+        bool write_mem = true;
 
         %(op_decl)s;
         %(op_rd)s;
@@ -165,7 +166,7 @@ def template StoreExecute {{
             %(op_wb)s;
         }
 
-        if (fault == NoFault) {
+        if (fault == NoFault && write_mem) {
             fault = msr.le ?
                     writeMemAtomicLE(xc, traceData, Mem, EA, memAccessFlags,
                                      NULL) :
@@ -185,6 +186,7 @@ def template StoreInitiateAcc {{
         Addr EA;
         Fault fault = NoFault;
         Msr msr = xc->tcBase()->readIntReg(INTREG_MSR);
+        bool write_mem = true;
 
         %(op_decl)s;
         %(op_rd)s;
@@ -199,7 +201,7 @@ def template StoreInitiateAcc {{
             %(op_wb)s;
         }
 
-        if (fault == NoFault) {
+        if (fault == NoFault && write_mem) {
             fault = msr.le ?
                     writeMemTimingLE(xc, traceData, Mem, EA, memAccessFlags,
                                      NULL) :

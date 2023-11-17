@@ -210,7 +210,7 @@ decode PO default Unknown::unknown() {
             MSR = insertBits(MSR,3,0,bits(SRR1,3,0));
             CFAR = CIA;
             NIA = SRR0 & -4ULL;
-        }}, [ IsPrivileged ]);
+        }}, [ IsPrivileged, IsNonSpeculative, IsSerializeAfter ]);
         274:  MiscOp::hrfid({{
             if((bits(MSR,34,32)!=0x02)|(bits(HSRR1,34,32)!=0x00))
                 MSR = insertBits(MSR,34,32,bits(HSRR1,34,32));
@@ -506,6 +506,7 @@ decode PO default Unknown::unknown() {
                 PowerISA::Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
+                write_mem = store_performed;
             }});
 
             151: stwx({{ Mem_uw = Rs_uw; }});
@@ -559,6 +560,7 @@ decode PO default Unknown::unknown() {
                 Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
+                write_mem = store_performed;
             }});
 
             215: stbx({{ Mem_ub = Rs_ub; }});
@@ -804,6 +806,7 @@ decode PO default Unknown::unknown() {
                 Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
+                write_mem = store_performed;
             }});
         }
 
@@ -821,6 +824,7 @@ decode PO default Unknown::unknown() {
                 Cr cr = CR;
                 cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
                 CR = cr;
+                write_mem = store_performed;
             }});
 
             //727: stfdx({{ Mem_df = Fs; }});
@@ -1379,7 +1383,7 @@ decode PO default Unknown::unknown() {
                     MSR = insertBits(MSR, 15, bits(Rs, 15));
                     MSR = insertBits(MSR,  1, bits(Rs,  1));
                 }
-            }}, [ IsPrivileged ]);
+            }}, [ IsPrivileged, IsNonSpeculative, IsSerializeAfter ]);
 
             146: mtmsr({{
                  if( L ==0 ){
@@ -1395,7 +1399,7 @@ decode PO default Unknown::unknown() {
                      MSR = insertBits(MSR,15,bits(Rs,15));
                      MSR = insertBits(MSR,1,bits(Rs,1));
                  }
-            }}, [ IsPrivileged ]);
+            }}, [ IsPrivileged, IsNonSpeculative, IsSerializeAfter ]);
         }
     }
 

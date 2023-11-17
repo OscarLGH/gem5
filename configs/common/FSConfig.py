@@ -681,13 +681,13 @@ def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
     self.mem_ranges = [AddrRange('3GB'),
                        AddrRange(0xC0000000, 0xEFFFFFFF),
                        AddrRange(0xFFFF5000, 0xFFFFFFFF),
+                       AddrRange(0xF0000000, 0xFFFEFFFF),
                        AddrRange(interrupts_address_space_base,
                   interrupts_address_space_base + interrupts_address_space_size)]
     self.bridge.master = self.iobus.slave
     self.bridge.slave = self.membus.master
     self.bridge.ranges = \
         [
-        AddrRange(0xF0000000, 0xFFFEFFFF),
         AddrRange(self.g500.uart.pio_addr,
             0xFFFF4FFF)
         ]
