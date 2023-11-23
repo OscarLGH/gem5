@@ -210,7 +210,7 @@ decode PO default Unknown::unknown() {
             MSR = insertBits(MSR,3,0,bits(SRR1,3,0));
             CFAR = CIA;
             NIA = SRR0 & -4ULL;
-        }}, [ IsPrivileged, IsNonSpeculative, IsSerializeAfter ]);
+        }}, [ IsPrivileged, IsNonSpeculative, IsSquashAfter ]);
         274:  MiscOp::hrfid({{
             if((bits(MSR,34,32)!=0x02)|(bits(HSRR1,34,32)!=0x00))
                 MSR = insertBits(MSR,34,32,bits(HSRR1,34,32));
@@ -223,7 +223,7 @@ decode PO default Unknown::unknown() {
             MSR = insertBits(MSR,14,6,bits(HSRR1,14,6));
             MSR = insertBits(MSR,3,0,bits(HSRR1,3,0));
             NIA = HSRR0 & -4ULL;
-        }}, [ IsNonSpeculative, IsSerializeAfter ]);
+        }}, [ IsNonSpeculative, IsSquashAfter ]);
 
         format CondLogicOp {
             193: crxor({{
@@ -753,19 +753,19 @@ decode PO default Unknown::unknown() {
 
         format MiscOp {
             598: sync({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
-            854: eieio({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
+            854: eieio({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
 
             306: tlbie({{ dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[0];Rb}});
-            274: tlbiel({{ }});
-            566: tlbsync({{ }});
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[0];Rb}}, [ IsNonSpeculative, IsSquashAfter ]);
+            274: tlbiel({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
+            566: tlbsync({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
 
             434: IntLogicOp::slbie({{
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slbie_helper(xc->tcBase(), Rb);
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->slbie_helper(xc->tcBase(), Rb);
-            }}, [IsNonSpeculative]);
+            }}, [ IsNonSpeculative, IsSquashAfter ]);
             498: IntLogicOp::slbia({{
                 IH;
                 for (int i = 1; i < 64; i++) {
@@ -774,7 +774,7 @@ decode PO default Unknown::unknown() {
                     dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[i].esid = 0;
                 }
-            }}, [IsNonSpeculative]);
+            }}, [ IsNonSpeculative, IsSquashAfter ]);
             402: IntLogicOp::slbmte({{
                 int index = Rb & 0x7ff;
                 dynamic_cast<PowerISA::TLB *>(
@@ -782,10 +782,10 @@ decode PO default Unknown::unknown() {
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
                 //printf("slbmte, index = %d ESID = %llx VSID = %llx\n", Rb & 0x7ff, Rb, Rs);
-            }}, [IsNonSpeculative]);
-            851: IntLogicOp::slbmfev({{ Rt;Rb;}});
-            915: IntLogicOp::slbmfee({{ Rt;Rb;}});
-            979: IntLogicOp::slbfee({{ Rt;Rb;}});
+            }}, [ IsNonSpeculative, IsSquashAfter ]);
+            851: IntLogicOp::slbmfev({{ Rt;Rb;}}, [ IsNonSpeculative ]);
+            915: IntLogicOp::slbmfee({{ Rt;Rb;}}, [ IsNonSpeculative ]);
+            979: IntLogicOp::slbfee({{ Rt;Rb;}}, [ IsNonSpeculative ]);
         }
         //599: LoadIndexOp::lfdx({{ Ft = Mem_df; }});
         //631: LoadIndexUpdateOp::lfdux({{ Ft = Mem_df; }});
@@ -1242,10 +1242,10 @@ decode PO default Unknown::unknown() {
                 0x320: mfsdr1({{Rt = SDAR; }});
                 0x324: mffscr({{Rt = FSCR;}});
                 0x329: mfhrmor({{Rt = HRMOR;}});
-                0x340: mfsrr0({{ Rt = SRR0; }});
+                0x340: mfsrr0({{ Rt = SRR0; }}, [ IsNonSpeculative ]);
                 0x345: mfrpr({{ Rt = RPR; }});
                 0x349: mfhssr0({{Rt = HSRR0;}});
-                0x360: mfsrr1({{ Rt = SRR1; }});
+                0x360: mfsrr1({{ Rt = SRR1; }}, [ IsNonSpeculative ]);
                 0x365: mfciabr({{ Rt = CIABR; }});
                 0x368: mfcir({{Rt = CIR;}}, [ IsPrivileged ]);
                 0x369: mfhssr1({{Rt = HSRR1;}});
@@ -1306,12 +1306,12 @@ decode PO default Unknown::unknown() {
                 0x22a: mthmeer({{HMEER = Rs;}});
                 0x238: mtmmcr2({{MMCR2 = Rs;}});
                 0x23a: mtvtb({{VTB = Rs;}});
-                0x240: mtdsisr({{ DSISR = Rs; }});
+                0x240: mtdsisr({{ DSISR = Rs; }}, [ IsNonSpeculative, IsSquashAfter ]);
                 0x248: mtsprg2({{SPRG2 = Rs;}});
                 0x249: mthdisr({{HDSISR = Rs;}});
                 0x24a: mtpcr({{PCR = Rs;}});
                 0x258: mtmmcra({{MMCRA = Rs;}});
-                0x260: mtdar({{ DAR = Rs; }});
+                0x260: mtdar({{ DAR = Rs; }}, [ IsNonSpeculative, IsSquashAfter ]);
                 0x268: mtsprg3({{SPRG3 = Rs;}});
                 0x269: mthdar({{HDAR = Rs;}});
                 0x27a: mtmmcrc({{MMCRC = Rs;}});
@@ -1323,18 +1323,18 @@ decode PO default Unknown::unknown() {
                     xc->tcBase()->getCpuPtr()->getInterruptController(0));
                     ic->decrement_counter = Rs;
                     DEC = Rs;
-                }});
+                }}, [ IsNonSpeculative, IsSquashAfter ]);
                 0x2c9: mthdec({{HDEC = Rs;}});
                 0x2fa: mtpsscr({{PSSCR = Rs;}});
                 0x304: mtctrl({{ CTRL = Rs; }});
                 0x324: mtfscr({{FSCR = Rs;}});
                 0x329: mthrmor({{HRMOR = Rs;}});
-                0x340: mtsrr0({{ SRR0 = Rs; }});
+                0x340: mtsrr0({{ SRR0 = Rs; }}, [ IsNonSpeculative, IsSquashAfter ]);
                 0x345: mtrpr({{RPR = Rs;}});
                 0x349: mthssr0({{HSRR0 = Rs;}});
-                0x360: mtsrr1({{ SRR1 = Rs; }});
+                0x360: mtsrr1({{ SRR1 = Rs; }}, [ IsNonSpeculative, IsSquashAfter ]);
                 0x365: mtciabr({{CIABR = Rs;}});
-                0x369: mthssr1({{HSRR1 = Rs;}});
+                0x369: mthssr1({{HSRR1 = Rs;}}, [ IsNonSpeculative, IsSquashAfter ]);
                 0x378: mtmmcr0({{MMCR0 = Rs;}});
                 0x380: mtcfar({{ CFAR = Rs; }});
                 0x390: mttbl({{ TBL = Rs; }});
@@ -1353,7 +1353,7 @@ decode PO default Unknown::unknown() {
                 0x398: mtspr398({{ }});
                 0x3b8: mtspr3b8({{ }});
 
-                0x320: mtsdr1({{ SDAR = Rs; }});
+                0x320: mtsdr1({{ SDAR = Rs; }}, [ IsNonSpeculative, IsSerializeAfter ]);
                 0x389: mtspr389({{ }});
                 0x3db: mtspr3db({{ }});
             }
@@ -1383,7 +1383,7 @@ decode PO default Unknown::unknown() {
                     MSR = insertBits(MSR, 15, bits(Rs, 15));
                     MSR = insertBits(MSR,  1, bits(Rs,  1));
                 }
-            }}, [ IsPrivileged, IsNonSpeculative, IsSerializeAfter ]);
+            }}, [ IsPrivileged, IsNonSpeculative, IsSquashAfter ]);
 
             146: mtmsr({{
                  if( L ==0 ){
@@ -1399,7 +1399,7 @@ decode PO default Unknown::unknown() {
                      MSR = insertBits(MSR,15,bits(Rs,15));
                      MSR = insertBits(MSR,1,bits(Rs,1));
                  }
-            }}, [ IsPrivileged, IsNonSpeculative, IsSerializeAfter ]);
+            }}, [ IsPrivileged, IsNonSpeculative, IsSquashAfter ]);
         }
     }
 
