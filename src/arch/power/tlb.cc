@@ -465,6 +465,7 @@ TLB::translateTiming(const RequestPtr &req, ThreadContext *tc,
                 //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
                 paddr = vaddr;
                 //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                req->setFlags(Request::STRICT_ORDER);
                 req->setPaddr(paddr);
                 translation->finish(NoFault, req, tc, mode);
 
@@ -491,6 +492,7 @@ TLB::translateTiming(const RequestPtr &req, ThreadContext *tc,
                 //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
                 paddr = vaddr;
                 //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                req->setFlags(Request::STRICT_ORDER);
                 req->setPaddr(paddr);
                 translation->finish(NoFault, req, tc, mode);
                 return;
