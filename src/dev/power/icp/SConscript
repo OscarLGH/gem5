@@ -1,0 +1,6 @@
+Import('*')
+
+if env['TARGET_ISA'] == 'power':
+    SimObject('Icp.py')
+    Source('Icp.cc')
+DebugFlag('Icp')
