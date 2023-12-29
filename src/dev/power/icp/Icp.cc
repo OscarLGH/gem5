@@ -38,7 +38,7 @@ namespace gem5
 {
 
 PowerISA::Icp::Icp(const Params &p)
-    : BasicPioDevice(p, 0x1000),
+    : BasicPioDevice(p, 0x10000),
       latency(p.pio_latency)
 {
 

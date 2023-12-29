@@ -664,6 +664,8 @@ def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
     if not mdesc:
         # generic system
         mdesc = SysConfig()
+
+    self.multi_thread = True
     self.mem_mode = mem_mode
     self.mem_ranges = [AddrRange(mdesc.mem())]
 

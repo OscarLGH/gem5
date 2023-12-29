@@ -81,6 +81,7 @@ BareMetal::initState()
     ByteOrder byteOrder = bootloader->getByteOrder();
     bool is64bit = (bootloader->getArch() == loader::Power64);
     bool isLittleEndian = (byteOrder == ByteOrder::little);
+    int cpu_idx = 0;
     for (auto *tc: system->threads) {
         auto pc = tc->pcState();
         pc.set(0x10);    // For skiboot
@@ -112,6 +113,7 @@ BareMetal::initState()
         //ArgumentReg0 is initialized with 0xc00000 because in linux/system.cc
         //dtb is loaded at 0xc00000
         tc->setIntReg(ArgumentReg0, 0x1800000);
+        tc->setIntReg(INTREG_PIR , cpu_idx++);
         tc->activate();
     }
 
