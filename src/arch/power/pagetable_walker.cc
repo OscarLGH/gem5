@@ -640,7 +640,7 @@ Walker::ppc_slb_t * Walker::slb_lookup(ThreadContext * tc, Addr eaddr)
     int slb_size = 64;
 
     for (n = 0; n < slb_size; n++) {
-        ppc_slb_t *slb = &slb_table[n];
+        ppc_slb_t *slb = &slb_table[tc->threadId()][n];
         DPRINTF(PageTableWalker,"slb[%d].esid: 0x%lx\n", n, slb->esid);
         DPRINTF(PageTableWalker,"slb[%d].vsid: 0x%lx\n", n, slb->vsid);
         /*
@@ -1211,10 +1211,10 @@ Walker::walkHashTable(Addr vaddr ,ThreadContext * tc,
 }
 
 int
-Walker::ppc_store_slb(int slot,
+Walker::ppc_store_slb(int slot, ThreadID tid,
                   Addr esid, Addr vsid)
 {
-    ppc_slb_t *slb = &slb_table[slot];
+    ppc_slb_t *slb = &slb_table[tid][slot];
     const PPCHash64SegmentPageSizes *sps = NULL;
     int i;
 
@@ -1272,8 +1272,8 @@ void Walker::slbie_helper(ThreadContext * tc, Addr eaddr)
     }
 
     if (slb->esid & SLB_ESID_V) {
+        printf("invalidates slb entry: esid = %llx TID = %d\n", slb->esid, tc->threadId());
         slb->esid &= ~SLB_ESID_V;
-
         /*
          * XXX: given the fact that segment size is 256 MB or 1TB,
          *      and we still don't have a tlb_flush_mask(env, n, mask)

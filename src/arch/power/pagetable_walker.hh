@@ -433,7 +433,7 @@ namespace PowerISA
                   },
               }
           };
-          ppc_slb_t slb_table[64];
+          ppc_slb_t slb_table[8][64];
           PPCHash64PageSize sp_table[8];
 
           ppc_slb_t * slb_lookup(ThreadContext * tc, Addr eaddr);
@@ -456,7 +456,7 @@ namespace PowerISA
           int ppc_hash64_amr_prot(ThreadContext * tc, ppc_hash_pte64_t pte);
           void ppc_hash64_set_r(ThreadContext * tc, Addr ptex, uint64_t pte1);
           void ppc_hash64_set_c(ThreadContext * tc, Addr ptex, uint64_t pte1);
-          int ppc_store_slb(int slot, Addr esid, Addr vsid);
+          int ppc_store_slb(int slot, ThreadID tid, Addr esid, Addr vsid);
           void slbie_helper(ThreadContext * tc, Addr eaddr);
           Fault prepareSegInt(ThreadContext * tc, RequestPtr req,
                     BaseMMU::Mode mode);

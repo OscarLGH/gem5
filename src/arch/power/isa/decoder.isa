@@ -752,15 +752,39 @@ decode PO default Unknown::unknown() {
         }
 
         format MiscOp {
+            206: msgsnd({{
+                unsigned int msg_type = (Rb >> 27) & 0x1f;
+                unsigned int payload = Rb & 0x7ffffff;
+                printf("msgsnd: Rb = %llx\n", Rb);
+                printf("msgsnd: msg_type = %d payload = %x\n", msg_type, payload);
+                unsigned int broadcast = (payload >> 26) & 0x1;
+                unsigned int pir_tag = (payload & 0x3fff);
+                printf("msgsnd: broadcast = %d, pir_tag = %x\n", broadcast, pir_tag);
+
+                ThreadContext *tc0 = xc->tcBase();
+                auto cpu_ptr = tc0->getCpuPtr();
+                for (int i = 0; i < cpu_ptr->numContexts(); i++) {
+                    ThreadContext *tc = cpu_ptr->getContext(i);
+                    auto ic = cpu_ptr->getInterruptController(tc->threadId());
+                    if (pir_tag == tc->readIntReg(INTREG_PIR)) {
+                        ic->post(DirPriDoorbell, 0);
+                    }
+                }
+            }});
+            238: msgclr({{
+                printf("msgclr: Rb = %llx\n", Rb);
+            }});
+
             598: sync({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
             854: eieio({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
 
             306: tlbie({{ dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[0];Rb}}, [ IsNonSpeculative, IsSquashAfter ]);
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[xc->tcBase()->threadId()][0];Rb}}, [ IsNonSpeculative, IsSquashAfter ]);
             274: tlbiel({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
             566: tlbsync({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
 
             434: IntLogicOp::slbie({{
+                printf("slbie. Rb = %llx ea = %llx class = %x seg size = %x\n", Rb, Rb & ~0xfffffff, Rb & 0x8000000, (Rb >> 25) & 0x3);
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slbie_helper(xc->tcBase(), Rb);
                 dynamic_cast<PowerISA::TLB *>(
@@ -770,18 +794,18 @@ decode PO default Unknown::unknown() {
                 IH;
                 for (int i = 1; i < 64; i++) {
                     dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->itb)->walker->slb_table[i].esid = 0;
+                                xc->tcBase()->getMMUPtr()->itb)->walker->slb_table[xc->tcBase()->threadId()][i].esid = 0;
                     dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[i].esid = 0;
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[xc->tcBase()->threadId()][i].esid = 0;
                 }
             }}, [ IsNonSpeculative, IsSquashAfter ]);
             402: IntLogicOp::slbmte({{
                 int index = Rb & 0x7ff;
                 dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
+                                xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, xc->tcBase()->threadId(), Rb & (~0x7ffULL), Rs);
                 dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, Rb & (~0x7ffULL), Rs);
-                //printf("slbmte, index = %d ESID = %llx VSID = %llx\n", Rb & 0x7ff, Rb, Rs);
+                                xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, xc->tcBase()->threadId(), Rb & (~0x7ffULL), Rs);
+                printf("slbmte, index = %d ESID = %llx VSID = %llx TID = %d\n", Rb & 0x7ff, Rb, Rs, xc->tcBase()->threadId());
             }}, [ IsNonSpeculative, IsSquashAfter ]);
             851: IntLogicOp::slbmfev({{ Rt;Rb;}}, [ IsNonSpeculative ]);
             915: IntLogicOp::slbmfee({{ Rt;Rb;}}, [ IsNonSpeculative ]);
@@ -1200,7 +1224,7 @@ decode PO default Unknown::unknown() {
                 0x120: mfctr({{ Rt = CTR; }});
                 0x188: mftb({{
                     auto ic = dynamic_cast<PowerISA::Interrupts *>(
-                    xc->tcBase()->getCpuPtr()->getInterruptController(0));
+                    xc->tcBase()->getCpuPtr()->getInterruptController(xc->tcBase()->threadId()));
                     TB = ic->timebase_counter;
                     Rt = TB;
                 }});
@@ -1233,7 +1257,7 @@ decode PO default Unknown::unknown() {
                 0x2a9: mfpurr({{Rt = PURR;}}, [ IsPrivileged ]);
                 0x2C0: mfdec({{
                     auto ic = dynamic_cast<PowerISA::Interrupts *>(
-                    xc->tcBase()->getCpuPtr()->getInterruptController(0));
+                    xc->tcBase()->getCpuPtr()->getInterruptController(xc->tcBase()->threadId()));
                     DEC = ic->decrement_counter;
                     Rt = DEC;
                 }});
@@ -1320,7 +1344,7 @@ decode PO default Unknown::unknown() {
                 0x2a9: mtpurr({{PURR = Rs;}});
                 0x2C0: mtdec({{
                     auto ic = dynamic_cast<PowerISA::Interrupts *>(
-                    xc->tcBase()->getCpuPtr()->getInterruptController(0));
+                    xc->tcBase()->getCpuPtr()->getInterruptController(xc->tcBase()->threadId()));
                     ic->decrement_counter = Rs;
                     DEC = Rs;
                 }}, [ IsNonSpeculative, IsSquashAfter ]);
