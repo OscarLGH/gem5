@@ -52,6 +52,7 @@ if env['TARGET_ISA'] == 'power':
     Source('linux/fs_workload.cc')
     Source('pagetable_walker.cc')
     Source('tlb.cc')
+    Source('locked_mem.cc')
 
     SimObject('PowerInterrupts.py')
     SimObject('PowerISA.py')

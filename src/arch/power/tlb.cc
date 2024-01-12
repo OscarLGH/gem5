@@ -408,13 +408,15 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
                     DPRINTF(TLB, "translation fault:%s.\n", fault->name());
                 } else {
                     fault = NoFault;
+                    if (req->getVaddr() < 0x800000000000ULL)
+                        DPRINTF(TLB, "TID:%d Translated %#x -> %#x.\n", tc->threadId(), req->getVaddr(), req->getPaddr());
                 }
                 return fault;
             }
             else{
                 //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
                 paddr = vaddr;
-                //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
                 req->setPaddr(paddr);
                 return NoFault;
             }

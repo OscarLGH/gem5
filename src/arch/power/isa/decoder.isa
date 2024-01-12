@@ -414,7 +414,7 @@ decode PO default Unknown::unknown() {
         4: IntTrapOp::tw({{ Ra_sw }}, {{ Rb_sw }});
 
         format LoadIndexOp {
-            20: lwarx({{ Rt = Mem_uw; Rsv = 1; RsvLen = 4; RsvAddr = EA; }});
+            20: lwarx({{ Rt = Mem_uw; Rsv = 1; RsvLen = 4; RsvAddr = EA; }}, mem_flags=LLSC);
 
             21: ldx({{ Rt = Mem; }});
             23: lwzx({{ Rt = Mem_uw; }});
@@ -451,8 +451,7 @@ decode PO default Unknown::unknown() {
                 cr = makeCRFieldUnsigned((uint32_t)Ra, (uint32_t)Rb, xer.so);
         }});
 
-        52: LoadIndexOp::lbarx({{ Rt = Mem_ub; }},
-                               {{ Rsv = 1; RsvLen = 1; RsvAddr = EA; }});
+        52: LoadIndexOp::lbarx({{ Rt = Mem_ub; }}, mem_flags=LLSC);
 
         53: LoadIndexUpdateOp::ldux({{ Rt = Mem; }});
         55: LoadIndexUpdateOp::lwzux({{ Rt = Mem_uw; }});
@@ -465,13 +464,11 @@ decode PO default Unknown::unknown() {
         68: IntTrapOp::td({{ Ra }}, {{ Rb }});
 
         format LoadIndexOp {
-            84: ldarx({{ Rt = Mem_ud; }},
-                      {{ Rsv = 1; RsvLen = 8; RsvAddr = EA; }});
+            84: ldarx({{ Rt = Mem_ud; }}, mem_flags=LLSC);
 
             87: lbzx({{ Rt = Mem_ub; }});
 
-            116: lharx({{ Rt = Mem_uh;}},
-                       {{  Rsv = 1; RsvLen = 2; RsvAddr = EA; }});
+            116: lharx({{ Rt = Mem_uh;}}, mem_flags=LLSC);
         }
 
         119: LoadIndexUpdateOp::lbzux({{ Rt = Mem_ub; }});
@@ -496,20 +493,18 @@ decode PO default Unknown::unknown() {
         format StoreIndexOp {
             149: stdx({{ Mem = Rs }});
             150: stwcx({{
-                bool store_performed = false;
-                if (Rsv) {
-                    Mem_uw = Rs_uw;
-                    store_performed = true;
-                    Rsv = 0;
-                }
+                Mem_uw = Rs_uw;
+                extra_ptr = &write_mem;
+            }}, {{
                 Xer xer = XER;
                 PowerISA::Cr cr = CR;
-                cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
+                cr.cr0 = ((write_mem ? 0x2 : 0x0) | xer.so);
                 CR = cr;
-                write_mem = store_performed;
-            }});
+            }}, inst_flags=IsStoreConditional, mem_flags=LLSC);
 
             151: stwx({{ Mem_uw = Rs_uw; }});
+
+            981: stbcix({{ Mem_ub = Rs_ub; }});
         }
 
         154: IntLogicOp::prtyw({{
@@ -550,18 +545,14 @@ decode PO default Unknown::unknown() {
 
         format StoreIndexOp {
             214: stdcx({{
-                bool store_performed = false;
-                if (Rsv) {
-                    Mem = Rs;
-                    store_performed = true;
-                    Rsv = 0;
-                }
-                Xer xer = XER;
-                Cr cr = CR;
-                cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
-                CR = cr;
-                write_mem = store_performed;
-            }});
+                Mem = Rs;
+                extra_ptr = &write_mem;
+                }}, {{
+                    Xer xer = XER;
+                    PowerISA::Cr cr = CR;
+                    cr.cr0 = ((write_mem ? 0x2 : 0x0) | xer.so);
+                    CR = cr;
+                }}, inst_flags=IsStoreConditional, mem_flags=LLSC);
 
             215: stbx({{ Mem_ub = Rs_ub; }});
         }
@@ -630,6 +621,8 @@ decode PO default Unknown::unknown() {
         format LoadIndexOp {
             341: lwax({{ Rt = Mem_sw; }});
             343: lhax({{ Rt = Mem_sh; }});
+
+            853: lbzcix({{ Rt = Mem_ub; }});
         }
 
         format LoadIndexUpdateOp {
@@ -755,11 +748,11 @@ decode PO default Unknown::unknown() {
             206: msgsnd({{
                 unsigned int msg_type = (Rb >> 27) & 0x1f;
                 unsigned int payload = Rb & 0x7ffffff;
-                printf("msgsnd: Rb = %llx\n", Rb);
-                printf("msgsnd: msg_type = %d payload = %x\n", msg_type, payload);
+                //printf("msgsnd: Rb = %llx\n", Rb);
+                //printf("msgsnd: msg_type = %d payload = %x\n", msg_type, payload);
                 unsigned int broadcast = (payload >> 26) & 0x1;
                 unsigned int pir_tag = (payload & 0x3fff);
-                printf("msgsnd: broadcast = %d, pir_tag = %x\n", broadcast, pir_tag);
+                //printf("msgsnd: broadcast = %d, pir_tag = %x\n", broadcast, pir_tag);
 
                 ThreadContext *tc0 = xc->tcBase();
                 auto cpu_ptr = tc0->getCpuPtr();
@@ -767,6 +760,7 @@ decode PO default Unknown::unknown() {
                     ThreadContext *tc = cpu_ptr->getContext(i);
                     auto ic = cpu_ptr->getInterruptController(tc->threadId());
                     if (pir_tag == tc->readIntReg(INTREG_PIR)) {
+                        //printf("msgsnd: sending interrupt to tid:%d\n", tc->threadId());
                         ic->post(DirPriDoorbell, 0);
                     }
                 }
@@ -784,7 +778,7 @@ decode PO default Unknown::unknown() {
             566: tlbsync({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
 
             434: IntLogicOp::slbie({{
-                printf("slbie. Rb = %llx ea = %llx class = %x seg size = %x\n", Rb, Rb & ~0xfffffff, Rb & 0x8000000, (Rb >> 25) & 0x3);
+                //printf("slbie. Rb = %llx ea = %llx class = %x seg size = %x\n", Rb, Rb & ~0xfffffff, Rb & 0x8000000, (Rb >> 25) & 0x3);
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slbie_helper(xc->tcBase(), Rb);
                 dynamic_cast<PowerISA::TLB *>(
@@ -805,7 +799,7 @@ decode PO default Unknown::unknown() {
                                 xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, xc->tcBase()->threadId(), Rb & (~0x7ffULL), Rs);
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->dtb)->walker->ppc_store_slb(index, xc->tcBase()->threadId(), Rb & (~0x7ffULL), Rs);
-                printf("slbmte, index = %d ESID = %llx VSID = %llx TID = %d\n", Rb & 0x7ff, Rb, Rs, xc->tcBase()->threadId());
+                //printf("slbmte, index = %d ESID = %llx VSID = %llx TID = %d\n", Rb & 0x7ff, Rb, Rs, xc->tcBase()->threadId());
             }}, [ IsNonSpeculative, IsSquashAfter ]);
             851: IntLogicOp::slbmfev({{ Rt;Rb;}}, [ IsNonSpeculative ]);
             915: IntLogicOp::slbmfee({{ Rt;Rb;}}, [ IsNonSpeculative ]);
@@ -820,36 +814,28 @@ decode PO default Unknown::unknown() {
             //663: stfsx({{ Mem_sf = Fs_sf; }});
 
             694: stbcx({{
-                bool store_performed = false;
-                if (Rsv) {
                     Mem_ub = Rs_ub;
-                    store_performed = true;
-                    Rsv = 0;
-                }
-                Xer xer = XER;
-                Cr cr = CR;
-                cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
-                CR = cr;
-                write_mem = store_performed;
-            }});
+                    extra_ptr = &write_mem;
+                }}, {{
+                    Xer xer = XER;
+                    PowerISA::Cr cr = CR;
+                    cr.cr0 = (( write_mem ? 0x2 : 0x0) | xer.so);
+                    CR = cr;
+                }}, inst_flags=IsStoreConditional, mem_flags=LLSC);
         }
 
         //695: StoreIndexUpdateOp::stfsux({{ Mem_sf = Fs_sf; }});
 
         format StoreIndexOp {
             726: sthcx({{
-                bool store_performed = false;
-                if (Rsv) {
-                    Mem_uh = Rs_uh;
-                    store_performed = true;
-                    Rsv = 0;
-                }
-                Xer xer = XER;
-                Cr cr = CR;
-                cr.cr0 = ((store_performed ? 0x2 : 0x0) | xer.so);
-                CR = cr;
-                write_mem = store_performed;
-            }});
+                Mem_uh = Rs_uh;
+                extra_ptr = &write_mem;
+                }}, {{
+                    Xer xer = XER;
+                    PowerISA::Cr cr = CR;
+                    cr.cr0 = ((write_mem ? 0x2 : 0x0) | xer.so);
+                    CR = cr;
+                }}, inst_flags=IsStoreConditional, mem_flags=LLSC);
 
             //727: stfdx({{ Mem_df = Fs; }});
         }
@@ -1209,7 +1195,7 @@ decode PO default Unknown::unknown() {
                 0x024: mftfiar({{ Rt = TFIAR; }});
                 0x039: mfbescrsu({{Rt = BESCRSU;}});
                 0x044: mftexasr({{ Rt = TEXASR; }});
-                0x05C: mfppr2({{ Rt =PPR32; }});
+                0x05C: mfppr2({{ Rt = PPR32; }});
                 0x078: mfupmc1({{Rt = PMC1;}});
                 0x098: mfupmc2({{Rt = PMC2;}});
                 0x099: mfebbhr({{Rt = EBBHR;}});

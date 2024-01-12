@@ -275,6 +275,7 @@ class PriDoorbellInterrupt : public PowerFault
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
+      DPRINTF(Fault, "Doorbell Interrupt invoked, tid = %d.\n", tc->threadId());
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerFault::updateSRR1(tc);
       PowerFault::updateMsr(tc);
@@ -296,7 +297,7 @@ class HypDoorbellInterrupt : public PowerFault
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Fault, "In Hypervisor interrupt\n");
+      DPRINTF(Fault, "Hyper Doorbell Interrupt invoked, tid = %d.\n", tc->threadId());
       tc->setIntReg(INTREG_HSRR0 , tc->instAddr());
       PowerFault::updateHSRR1(tc);
       PowerFault::updateMsr(tc);
@@ -327,8 +328,8 @@ public:
   virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Fault, "InstrStorageFault.pc = %llx.\n",
-        tc->pcState().instAddr());
+      DPRINTF(Fault, "InstrStorageFault.pc = %llx tid = %d.\n",
+        tc->pcState().instAddr(), tc->threadId());
       //tc->pcState(InstrStoragePCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
       //here unsetting SRR1 bits 33-36 and 42-47 according to ISA
@@ -354,8 +355,8 @@ public:
                        StaticInst::nullStaticInstPtr)
     {
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
-      DPRINTF(Fault, "InstrSegmentFault.pc = %llx.\n",
-        tc->pcState().instAddr());
+      DPRINTF(Fault, "InstrSegmentFault.pc = %llx tid = %d.\n",
+        tc->pcState().instAddr(), tc->threadId());
       PowerFault::updateMsr(tc);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(InstrSegmentPCSet,
@@ -379,8 +380,8 @@ public:
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Fault, "DataStorageFault.pc = %llx addr = %llx DSISR = %llx\n",
-        tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR), tc->readIntReg(INTREG_DSISR));
+      DPRINTF(Fault, "DataStorageFault.pc = %llx tid = %d addr = %llx DSISR = %llx\n",
+        tc->pcState().instAddr(), tc->threadId(), tc->readIntReg(INTREG_DAR), tc->readIntReg(INTREG_DSISR));
       //tc->pcState(DataStoragePCSet);
       tc->setIntReg(INTREG_DSISR, dsisr);
       tc->setIntReg(INTREG_DAR, dar);
@@ -411,8 +412,8 @@ public:
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       PowerFault::updateSRR1(tc);
       PowerFault::updateMsr(tc);
-      DPRINTF(Fault, "DataSegmentFault.pc = %llx addr = %llx\n",
-        tc->pcState().instAddr(), tc->readIntReg(INTREG_DAR));
+      DPRINTF(Fault, "DataSegmentFault.pc = %llx tid = %d addr = %llx\n",
+        tc->pcState().instAddr(), tc->threadId(), tc->readIntReg(INTREG_DAR));
       //tc->pcState(DataStoragePCSet);
       Msr msr = tc->readIntReg(INTREG_MSR);
       PCState *pc = new PCState(DataSegmentPCSet,

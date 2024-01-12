@@ -73,7 +73,7 @@ class Interrupts : public BaseInterrupts
 
     Interrupts(const Params &p) : BaseInterrupts(p), interrupts(0),
         timebase_counter(0), decrement_counter(0),
-        timebase_divider(32), inner_counter(0) {}
+        timebase_divider(1), inner_counter(0) {}
 
     void
     post(int int_num, int index)

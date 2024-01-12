@@ -114,7 +114,9 @@ BareMetal::initState()
         //dtb is loaded at 0xc00000
         tc->setIntReg(ArgumentReg0, 0x1800000);
         tc->setIntReg(INTREG_PIR , cpu_idx++);
+        tc->setIntReg(INTREG_PPR , 0x4ULL << 49);
         tc->activate();
+        inform("cpu %d activated, PIR = %x\n", cpu_idx, tc->readIntReg(INTREG_PIR));
     }
 
     warn_if(!bootloader->buildImage().write(system->physProxy),

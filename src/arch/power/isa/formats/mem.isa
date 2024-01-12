@@ -151,7 +151,8 @@ def template StoreExecute {{
         Addr EA;
         Fault fault = NoFault;
         Msr msr = xc->tcBase()->readIntReg(INTREG_MSR);
-        bool write_mem = true;
+        uint64_t write_mem = 0;
+        uint64_t *extra_ptr = NULL;
 
         %(op_decl)s;
         %(op_rd)s;
@@ -162,22 +163,21 @@ def template StoreExecute {{
         }
 
         if (fault == NoFault) {
-            %(update_code)s;
-            %(op_wb)s;
-        }
-
-        if (fault == NoFault && write_mem) {
             fault = msr.le ?
                     writeMemAtomicLE(xc, traceData, Mem, EA, memAccessFlags,
-                                     NULL) :
+                                     extra_ptr) :
                     writeMemAtomicBE(xc, traceData, Mem, EA, memAccessFlags,
-                                     NULL);
+                                     extra_ptr);
+        }
+
+        if (fault == NoFault) {
+            %(update_code)s;
+            %(op_wb)s;
         }
 
         return fault;
     }
 }};
-
 
 def template StoreInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
@@ -186,7 +186,8 @@ def template StoreInitiateAcc {{
         Addr EA;
         Fault fault = NoFault;
         Msr msr = xc->tcBase()->readIntReg(INTREG_MSR);
-        bool write_mem = true;
+        uint64_t write_mem = 0;
+        uint64_t *extra_ptr = NULL;
 
         %(op_decl)s;
         %(op_rd)s;
@@ -197,16 +198,16 @@ def template StoreInitiateAcc {{
         }
 
         if (fault == NoFault) {
-            %(update_code)s;
-            %(op_wb)s;
-        }
-
-        if (fault == NoFault && write_mem) {
             fault = msr.le ?
                     writeMemTimingLE(xc, traceData, Mem, EA, memAccessFlags,
                                      NULL) :
                     writeMemTimingBE(xc, traceData, Mem, EA, memAccessFlags,
                                      NULL);
+        }
+
+        if (fault == NoFault) {
+            %(update_code)s;
+            %(op_wb)s;
         }
 
         return fault;

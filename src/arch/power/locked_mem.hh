@@ -37,7 +37,15 @@
  * ISA-specific helper functions for locked memory accesses.
  */
 
-#include "arch/generic/locked_mem.hh"
+#include <stack>
+#include <unordered_map>
+
+#include "base/logging.hh"
+#include "base/trace.hh"
+#include "cpu/base.hh"
+#include "debug/LLSC.hh"
+#include "mem/packet.hh"
+#include "mem/request.hh"
 
 namespace gem5
 {
@@ -45,7 +53,84 @@ namespace gem5
 namespace PowerISA
 {
 
-using namespace GenericISA::locked_mem;
+const int WARN_FAILURE = 10000;
+
+// RISC-V allows multiple locks per hart, but each SC has to unlock the most
+// recent one, so we use a stack here.
+extern std::unordered_map<int, std::stack<Addr>> locked_addrs;
+
+template <class XC> inline void
+handleLockedSnoop(XC *xc, PacketPtr pkt, Addr cacheBlockMask)
+{
+    std::stack<Addr>& locked_addr_stack = locked_addrs[xc->contextId()];
+
+    if (locked_addr_stack.empty())
+        return;
+    Addr snoop_addr = pkt->getAddr() & cacheBlockMask;
+    DPRINTF(LLSC, "Locked snoop on address %x.\n", snoop_addr);
+    if ((locked_addr_stack.top() & cacheBlockMask) == snoop_addr)
+        locked_addr_stack.pop();
+}
+
+
+template <class XC> inline void
+handleLockedRead(XC *xc, const RequestPtr &req)
+{
+    std::stack<Addr>& locked_addr_stack = locked_addrs[xc->contextId()];
+
+    locked_addr_stack.push(req->getPaddr() & ~0xF);
+    DPRINTF(LLSC, "[cid:%d]: Reserved address %x.\n",
+            req->contextId(), req->getPaddr() & ~0xF);
+}
+
+template <class XC> inline void
+handleLockedSnoopHit(XC *xc)
+{}
+
+template <class XC> inline bool
+handleLockedWrite(XC *xc, const RequestPtr &req, Addr cacheBlockMask)
+{
+    std::stack<Addr>& locked_addr_stack = locked_addrs[xc->contextId()];
+
+    // Normally RISC-V uses zero to indicate success and nonzero to indicate
+    // failure (right now only 1 is reserved), but in gem5 zero indicates
+    // failure and one indicates success, so here we conform to that (it should
+    // be switched in the instruction's implementation)
+
+    DPRINTF(LLSC, "[cid:%d]: locked_addrs empty? %s.\n", req->contextId(),
+            locked_addr_stack.empty() ? "yes" : "no");
+    if (!locked_addr_stack.empty()) {
+        DPRINTF(LLSC, "[cid:%d]: addr = %x.\n", req->contextId(),
+                req->getPaddr() & ~0xF);
+        DPRINTF(LLSC, "[cid:%d]: last locked addr = %x.\n", req->contextId(),
+                locked_addr_stack.top());
+    }
+    if (locked_addr_stack.empty()
+            || locked_addr_stack.top() != ((req->getPaddr() & ~0xF))) {
+        DPRINTF(LLSC, "[cid:%d]: lock failed.\n", req->contextId());
+        req->setExtraData(0);
+        int stCondFailures = xc->readStCondFailures();
+        xc->setStCondFailures(++stCondFailures);
+        if (stCondFailures % WARN_FAILURE == 0) {
+            warn("%i: context %d: %d consecutive SC failures.\n",
+                    curTick(), xc->contextId(), stCondFailures);
+        }
+        return false;
+    }
+    if (req->isUncacheable()) {
+        req->setExtraData(2);
+    }
+
+    return true;
+}
+
+template <class XC>
+inline void
+globalClearExclusive(XC *xc)
+{
+    xc->getCpuPtr()->wakeup(xc->threadId());
+}
+
 
 } // namespace PowerISA
 } // namespace gem5
