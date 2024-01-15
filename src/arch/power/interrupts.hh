@@ -87,7 +87,7 @@ class Interrupts : public BaseInterrupts
     void
     clear(int int_num, int index)
     {
-        //DPRINTF(Interrupt, "Interrupt %d: cleared.\n", int_num);
+        DPRINTF(Interrupt, "Interrupt %d: cleared.\n", int_num);
         if (int_num < 0 || int_num >= NumInterruptLevels)
             panic("int_num out of bounds for fun CLEAR%d\n",int_num);
         interrupts[int_num] = 0;
@@ -113,26 +113,12 @@ class Interrupts : public BaseInterrupts
                 decrement_counter--;
             } else {
                 decrement_counter = 0xffffffffULL;
-                if (powersaving) {
-                    tc->setIntReg(INTREG_PMC5, Decrementer);
-                } else {
-                    post(Decrementer, 0);
-                }
+                post(Decrementer, 0);
             }
         }
 
-        if (msr.ee)
+        if (msr.ee || interrupts[0] == 1)
         {
-            if (interrupts[2] == 1) {
-                if (powersaving) {
-                    tc->setIntReg(INTREG_PMC5, Decrementer);
-                    interrupts[2] = 0;
-                    post(SystemReset, 0);
-                    return false;
-                } else {
-                    return true;
-                }
-            }
             for (int i = 0; i < NumInterruptLevels; i++) {
                 if (interrupts[i] == 1)
                     return true;

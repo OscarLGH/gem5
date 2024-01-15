@@ -270,10 +270,50 @@ decode PO default Unknown::unknown() {
             560: bctar({{ NIA = TAR & -4ULL; CFAR = CIA; }}, true);
         }
 
-        402: IntArithOp::doze({{ PMC6 = 1; }});
-        434: IntArithOp::nap({{ PMC6 = 1; }});
-        466: IntArithOp::sleep({{ PMC6 = 1; }});
-        498: IntArithOp::rvwinkle({{ PMC6 = 1; }});
+        402: IntArithOp::doze({{
+            //printf("doze at tick %lld\n", curTick());
+            ThreadContext *tc = xc->tcBase();
+            uint64_t powersaving = tc->readIntReg(INTREG_PMC6);
+            powersaving = 1;
+            tc->setIntReg(INTREG_PMC6, powersaving);
+            Tick next_cycle = tc->getCpuPtr()->nextCycle();
+            tc->getCpuPtr()->getInterruptController(
+                        tc->threadId())->post(0, 0);
+            tc->quiesceTick(next_cycle + 1000);
+        }});
+        434: IntArithOp::nap({{
+            //printf("nap at tick %lld\n", curTick());
+            ThreadContext *tc = xc->tcBase();
+            uint64_t powersaving = tc->readIntReg(INTREG_PMC6);
+            powersaving = 1;
+            tc->setIntReg(INTREG_PMC6, powersaving);
+            Tick next_cycle = tc->getCpuPtr()->nextCycle();
+            tc->getCpuPtr()->getInterruptController(
+                        tc->threadId())->post(0, 0);
+            tc->quiesceTick(next_cycle + 1000);
+        }});
+        466: IntArithOp::sleep({{
+            //printf("sleep at tick %lld\n", curTick());
+            ThreadContext *tc = xc->tcBase();
+            uint64_t powersaving = tc->readIntReg(INTREG_PMC6);
+            powersaving = 1;
+            tc->setIntReg(INTREG_PMC6, powersaving);
+            Tick next_cycle = tc->getCpuPtr()->nextCycle();
+            tc->getCpuPtr()->getInterruptController(
+                        tc->threadId())->post(0, 0);
+            tc->quiesceTick(next_cycle + 1000);
+        }});
+        498: IntArithOp::rvwinkle({{
+            //printf("rvwinkle at tick %lld\n", curTick());
+            ThreadContext *tc = xc->tcBase();
+            uint64_t powersaving = tc->readIntReg(INTREG_PMC6);
+            powersaving = 1;
+            tc->setIntReg(INTREG_PMC6, powersaving);
+            Tick next_cycle = tc->getCpuPtr()->nextCycle();
+            tc->getCpuPtr()->getInterruptController(
+                        tc->threadId())->post(0, 0);
+            tc->quiesceTick(next_cycle + 1000);
+        }});
 
         default: decode DX_XO {
             2: IntDispArithOp::addpcis({{ Rt = NIA + (d << 16); }});
