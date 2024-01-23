@@ -56,7 +56,7 @@ class PowerBareMetal(KernelWorkload):
     kernel_addr = Param.Addr(0x20000000, "kernel address")
     initramfs_filename = Param.String("dist/m5/system/binaries/initramfs.cpio",
             "File that contains the initramfs image");
-    initramfs_addr = Param.Addr(0x28000000, "initramfs address")
+    initramfs_addr = Param.Addr(0x40000000, "initramfs address")
 
 class PowerLinux(KernelWorkload):
     type = 'PowerLinux'

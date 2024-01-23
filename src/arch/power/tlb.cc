@@ -69,7 +69,7 @@ TLB::TLB(const Params &p) : BaseTLB(p), size(p.size), nlu(0)
     memset(table, 0, sizeof(PowerISA::PTE[size]));
     smallPages = 0;
     walker = p.walker;
-    //initConsoleSnoop();
+    walker->setTLB(this);
 }
 
 TLB::~TLB()
@@ -78,146 +78,22 @@ TLB::~TLB()
         delete [] table;
 }
 
-void
-TLB::initConsoleSnoop(void)
-{
-    int nameStart, addrLen;
-    std::string symName, symHexAddr;
-    std::ifstream in;
-    std::string line;
-
-    /* Find console snoop point for kernel */
-    in.open("dist/m5/system/binaries/objdump_vmlinux");
-    if (!in.is_open()) {
-        warn("Could not find kernel objdump");
-    }
-
-    while (getline(in, line)) {
-        /* Find ".log_store" and the first call to ".memcpy" inside it */
-        nameStart = line.find("<.log_store>:");
-
-        /* Sometimes, optimizations introduce ISRA symbols */
-        if (nameStart == std::string::npos) {
-            nameStart = line.find("<.log_store.isra.1>:");
-        }
-
-        if (nameStart != std::string::npos) {
-            while (getline(in, line)) {
-                if (line.find("<.memcpy>") != std::string::npos &&
-                    (*(line.rbegin())) != ':') {
-                    addrLen = line.find(":");
-                    std::istringstream hexconv(line.substr(0, addrLen));
-                    hexconv >> std::hex >> kernConsoleSnoopAddr;
-
-                    /* Use previous instruction and remove quadrant bits */
-                    kernConsoleSnoopAddr -= 4;
-                    kernConsoleSnoopAddr &= (-1ULL >> 2);
-                    break;
-                }
-            }
-        }
-    }
-
-    in.close();
-
-    if (!kernConsoleSnoopAddr) {
-        warn("Could not determine kernel console snooping address");
-    }
-
-    /* Find console snoop point for skiboot */
-    in.open("dist/m5/system/binaries/objdump_skiboot");
-    if (!in.is_open()) {
-        warn("Could not find skiboot objdump");
-    }
-
-    while (getline(in, line)) {
-        /* Find ".console_write" and the first call to ".write" inside it */
-        nameStart = line.find("<.console_write>:");
-
-        if (nameStart != std::string::npos) {
-            addrLen = line.find(":");
-            std::istringstream hexconv(line.substr(0, addrLen));
-            hexconv >> std::hex >> opalConsoleSnoopAddr;
-
-            /* Add OPAL load offset */
-            opalConsoleSnoopAddr += 0x30000000ULL;
-            break;
-        }
-    }
-
-    inform("Snooping kernel console at 0x%016lx", kernConsoleSnoopAddr);
-    inform("Snooping skiboot console at 0x%016lx", opalConsoleSnoopAddr);
-
-    in.close();
-    if (!opalConsoleSnoopAddr) {
-        warn("Could not determine skiboot console snooping address");
-    }
-}
-
-void
-TLB::trySnoopKernConsole(uint64_t paddr, ThreadContext *tc)
-{
-    uint64_t addr;
-    int len, i;
-    char *buf;
-
-    if (paddr != kernConsoleSnoopAddr) {
-        return;
-    }
-
-    len = (int) tc->readIntReg(5);
-    buf = new char[len + 1];
-    addr = (uint64_t) tc->readIntReg(4) & (-1ULL >> 4);
-
-    for (i = 0; i < len; i++) {
-        buf[i] = (char) walker->readPhysMem(addr + i, 8);
-    }
-
-    buf[i] = '\0';
-    printf("%lu [KERN LOG] %s\n", curTick(), buf);
-    delete buf;
-}
-
-void
-TLB::trySnoopOpalConsole(uint64_t paddr, ThreadContext *tc)
-{
-    uint64_t addr;
-    int len, i;
-    char *buf;
-
-    if (paddr != opalConsoleSnoopAddr) {
-        return;
-    }
-
-    len = (int) tc->readIntReg(5);
-    buf = new char[len + 1];
-    addr = (uint64_t) tc->readIntReg(4) & (-1ULL >> 4);
-
-    for (i = 0; i < len; i++) {
-        buf[i] = (char) walker->readPhysMem(addr + i, 8);
-    }
-
-    buf[i] = '\0';
-    printf("%lu [OPAL LOG] %s\n", curTick(), buf);
-    delete buf;
-}
-
 // look up an entry in the TLB
 PowerISA::PTE *
-TLB::lookup(Addr vpn, uint8_t asn) const
+TLB::lookup(Addr vpn, uint8_t tid) const
 {
     // assume not found...
     PowerISA::PTE *retval = NULL;
-    PageTable::const_iterator i = lookupTable.find(vpn);
+    PageTable::const_iterator i = lookupTable.find(vpn & ~((1ULL << 24) - 1));
     if (i != lookupTable.end()) {
-        while (i->first == vpn) {
+        DPRINTF(TLB, "lookupTable found.\n");
+        while (i->first == (vpn & ~((1ULL << 24) - 1))) {
             int index = i->second;
             PowerISA::PTE *pte = &table[index];
             Addr Mask = pte->Mask;
-            Addr InvMask = ~Mask;
             Addr VPN  = pte->VPN;
-            if (((vpn & InvMask) == (VPN & InvMask))
-               && (pte->G  || (asn == pte->asid))) {
+            if (((vpn & Mask) == (VPN & Mask))
+               && pte->V && (tid == pte->thread_id)) {
 
                 // We have a VPN + ASID Match
                 retval = pte;
@@ -227,87 +103,77 @@ TLB::lookup(Addr vpn, uint8_t asn) const
         }
     }
 
-    DPRINTF(TLB, "lookup %#x, asn %#x -> %s ppn %#x\n", vpn, (int)asn,
-            retval ? "hit" : "miss", retval ? retval->PFN1 : 0);
+    DPRINTF(TLB, "lookup %#x, tid %#x -> %s ppn %#x\n", vpn, (int)tid,
+            retval ? "hit" : "miss", retval ? retval->PFN : 0);
     return retval;
-}
-
-PowerISA::PTE*
-TLB::getEntry(unsigned Index) const
-{
-    // Make sure that Index is valid
-    assert(Index<size);
-    return &table[Index];
-}
-
-int
-TLB::probeEntry(Addr vpn,uint8_t asn) const
-{
-    // assume not found...
-    int Ind = -1;
-    PageTable::const_iterator i = lookupTable.find(vpn);
-    if (i != lookupTable.end()) {
-        while (i->first == vpn) {
-            int index = i->second;
-            PowerISA::PTE *pte = &table[index];
-            Addr Mask = pte->Mask;
-            Addr InvMask = ~Mask;
-            Addr VPN  = pte->VPN;
-            if (((vpn & InvMask) == (VPN & InvMask))
-                && (pte->G  || (asn == pte->asid))) {
-
-                // We have a VPN + ASID Match
-                Ind = index;
-                break;
-            }
-            ++i;
-        }
-    }
-
-    DPRINTF(Power, "VPN: %x, asid: %d, Result of TLBP: %d\n", vpn, asn, Ind);
-    return Ind;
-}
-
-inline Fault
-TLB::checkCacheability(const RequestPtr &req)
-{
-    Addr VAddrUncacheable = 0xA0000000;
-    if ((req->getVaddr() & VAddrUncacheable) == VAddrUncacheable) {
-
-        // mark request as uncacheable
-        req->setFlags(Request::UNCACHEABLE | Request::STRICT_ORDER);
-    }
-    return NoFault;
-}
-
-void
-TLB::insertAt(PowerISA::PTE &pte, unsigned Index, int _smallPages)
-{
-    smallPages=_smallPages;
-    if (Index > size){
-        warn("Attempted to write at index (%d) beyond TLB size (%d)",
-             Index, size);
-    } else {
-
-        // Update TLB
-        if (table[Index].V0 || table[Index].V1) {
-
-            // Previous entry is valid
-            PageTable::iterator i = lookupTable.find(table[Index].VPN);
-            lookupTable.erase(i);
-        }
-        table[Index]=pte;
-
-        // Update fast lookup table
-        lookupTable.insert(std::make_pair(table[Index].VPN, Index));
-    }
 }
 
 // insert a new TLB entry
 void
-TLB::insert(Addr addr, PowerISA::PTE &pte)
+TLB::insert(Addr vfn, Addr pfn, int prot, bool c, int page_shift, int tid)
 {
-    fatal("TLB Insert not yet implemented\n");
+    PowerISA::PTE *retval = NULL;
+    Tick min_tick = curTick();
+    int min_tick_idx = -1;
+    int free_idx = -1;
+
+    for (int index = 0; index < size; index++) {
+        PowerISA::PTE *pte = &table[index];
+
+        if (!pte->Valid()) {
+            free_idx = index;
+        } else {
+            if (pte->age < min_tick) {
+                min_tick = pte->age;
+                min_tick_idx = index;
+            }
+        }
+    }
+
+    // fill free slot.
+    if (free_idx != -1) {
+        PowerISA::PTE *pte = &table[free_idx];
+        pte->Mask = ~((1ULL << page_shift) - 1);
+        pte->VPN = vfn & pte->Mask;
+        pte->PFN = pfn & pte->Mask;
+        pte->age = curTick();
+        pte->prot = prot;
+        pte->c = c;
+        pte->V = 1;
+        pte->thread_id = tid;
+
+
+        lookupTable.insert(std::make_pair(table[free_idx].VPN, free_idx));
+
+        DPRINTF(TLB, "insert free:%llx, tid %#x PTE->Mask = %llx PTE->VPN = %llx\n", vfn, (int)tid,
+            pte->Mask, pte->VPN);
+
+        return;
+    }
+
+    // replace oldest pte
+    if (min_tick_idx != -1) {
+        PowerISA::PTE *pte = &table[min_tick_idx];
+        pte->Mask = ~((1ULL << page_shift) - 1);
+        pte->VPN = vfn & pte->Mask;
+        pte->PFN = pfn & pte->Mask;
+        pte->age = curTick();
+        pte->prot = prot;
+        pte->c = c;
+        pte->V = 1;
+        pte->thread_id = tid;
+
+
+        PageTable::iterator i = lookupTable.find(vfn);
+        if (i != lookupTable.end()) {
+            lookupTable.erase(i);
+        }
+        lookupTable.insert(std::make_pair(table[min_tick_idx].VPN, min_tick_idx));
+
+        DPRINTF(TLB, "insert oldest:%llx, tid %#x PTE->Mask = %llx PTE->VPN = %llx\n", vfn, (int)tid,
+            pte->Mask, pte->VPN);
+
+    }
 }
 
 void
@@ -339,7 +205,7 @@ TLB::unserialize(CheckpointIn &cp)
 
     for (int i = 0; i < size; i++) {
         ScopedCheckpointSection sec(cp, csprintf("PTE%d", i));
-        if (table[i].V0 || table[i].V1) {
+        if (table[i].V || table[i].V) {
             lookupTable.insert(std::make_pair(table[i].VPN, i));
         }
     }
@@ -373,50 +239,75 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
     Addr paddr;
     Addr vaddr = req->getVaddr();
     //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
-    vaddr &= 0x0fffffffffffffff;
+    //vaddr &= 0x0fffffffffffffff;
     if (FullSystem) {
         Msr msr = tc->readIntReg(INTREG_MSR);
         if (mode == BaseMMU::Execute) {
-            if (msr.ir){
-                //printf("MSR: %lx\n",(uint64_t)msr);
-                Fault fault = walker->start(tc, NULL, req, mode);
-                if (fault != NoFault) {
-                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+            if (msr.ir) {
+                PowerISA::PTE *tlb_entry = lookup(vaddr, tc->threadId());
+                if (!tlb_entry ||
+                    (tlb_entry && !(tlb_entry->prot & PAGE_EXEC))
+                    ) {
+                    //printf("MSR: %lx\n",(uint64_t)msr);
+                    Fault fault = walker->start(tc, NULL, req, mode);
+                    if (fault != NoFault) {
+                        DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                    } else {
+                        fault = NoFault;
+                        DPRINTF(TLB, "TID:%d PageTableWalker Translated %#x -> %#x.\n", tc->threadId(), req->getVaddr(), req->getPaddr());
+                    }
+                    return fault;
                 } else {
-                    fault = NoFault;
+                    paddr = tlb_entry->PFN + (req->getVaddr() & (~tlb_entry->Mask));
+                    if (tlb_entry->c) {
+                        req->setFlags(Request::UNCACHEABLE | Request::STRICT_ORDER);
+                    }
+                    req->setPaddr(paddr);
+                    DPRINTF(TLB, "TID:%d TLB Translated %#x -> %#x.\n", tc->threadId(), req->getVaddr(), req->getPaddr());
                 }
 
-                return fault;
+                return NoFault;
             }
             else{
                 //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
-                paddr = vaddr;
+                paddr = vaddr & 0x0fffffffffffffff;
                 //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
                 req->setPaddr(paddr);
-
-                //trySnoopKernConsole(paddr, tc);
-                //trySnoopOpalConsole(paddr, tc);
 
                 return NoFault;
             }
         }
         else{
             if (msr.dr){
-                Fault fault = walker->start(tc, NULL, req, mode);
-
-                if (fault != NoFault) {
-                    DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                PowerISA::PTE *tlb_entry = lookup(vaddr, tc->threadId());
+                if (!tlb_entry ||
+                    (tlb_entry && mode == BaseMMU::Read && !(tlb_entry->prot & PAGE_READ)) ||
+                    (tlb_entry && mode == BaseMMU::Write && !(tlb_entry->prot & PAGE_WRITE))
+                    ) {
+                    //printf("MSR: %lx\n",(uint64_t)msr);
+                    Fault fault = walker->start(tc, NULL, req, mode);
+                    if (fault != NoFault) {
+                        DPRINTF(TLB, "translation fault:%s.\n", fault->name());
+                    } else {
+                        fault = NoFault;
+                        DPRINTF(TLB, "TID:%d PageTableWalker Translated %#x -> %#x.\n", tc->threadId(), req->getVaddr(), req->getPaddr());
+                    }
+                    return fault;
                 } else {
-                    fault = NoFault;
-                    if (req->getVaddr() < 0x800000000000ULL)
-                        DPRINTF(TLB, "TID:%d Translated %#x -> %#x.\n", tc->threadId(), req->getVaddr(), req->getPaddr());
+                    paddr = tlb_entry->PFN + (req->getVaddr() & (~tlb_entry->Mask));
+                    if (tlb_entry->c) {
+                        req->setFlags(Request::UNCACHEABLE | Request::STRICT_ORDER);
+                    }
+                    req->setPaddr(paddr);
+                    DPRINTF(TLB, "TID:%d TLB Translated %#x -> %#x.\n", tc->threadId(), req->getVaddr(), req->getPaddr());
                 }
-                return fault;
+
+                return NoFault;
             }
             else{
                 //DPRINTF(TLB, "Translating vaddr %#x.\n", vaddr);
-                paddr = vaddr;
-                DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
+                paddr = vaddr & 0x0fffffffffffffff;
+                //DPRINTF(TLB, "Translated %#x -> %#x.\n", vaddr, paddr);
                 req->setPaddr(paddr);
                 return NoFault;
             }

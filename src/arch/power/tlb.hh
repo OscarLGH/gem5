@@ -130,8 +130,7 @@ class TLB : public BaseTLB
     }
 
     PowerISA::PTE &index(bool advance = true);
-    void insert(Addr vaddr, PowerISA::PTE &pte);
-    void insertAt(PowerISA::PTE &pte, unsigned Index, int _smallPages);
+    void insert(Addr vfn, Addr pfn, int prot, bool c, int page_shift, int tid);
     void flushAll() override;
 
     void
@@ -172,14 +171,8 @@ class TLB : public BaseTLB
      */
     Port *getTableWalkerPort() override;
 
-    uint64_t kernConsoleSnoopAddr;
-    uint64_t opalConsoleSnoopAddr;
-
     friend class Walker;
     PowerISA::Walker *walker;
-    void initConsoleSnoop();
-    void trySnoopKernConsole(uint64_t paddr, ThreadContext *tc);
-    void trySnoopOpalConsole(uint64_t paddr, ThreadContext *tc);
 };
 
 } // namespace PowerISA

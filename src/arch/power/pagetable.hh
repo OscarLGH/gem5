@@ -59,16 +59,17 @@ struct PTE
     bool G;
 
     /* Contents of Entry Lo0 */
-    Addr PFN0; // Physical Frame Number - Even
-    bool D0;   // Even entry Dirty Bit
-    bool V0;   // Even entry Valid Bit
-    uint8_t C0; // Cache Coherency Bits - Even
+    Addr PFN; // Physical Frame Number
+    bool D;   // Even entry Dirty Bit
+    bool V;   // Even entry Valid Bit
+    uint8_t C; // Cache Coherency Bits
 
-    /* Contents of Entry Lo1 */
-    Addr PFN1; // Physical Frame Number - Odd
-    bool D1;   // Odd entry Dirty Bit
-    bool V1;   // Odd entry Valid Bit
-    uint8_t C1; // Cache Coherency Bits (3 bits)
+    int prot;
+    bool c;     //cacheable
+
+    Tick age;
+
+    int thread_id;
 
     // The next few variables are put in as optimizations to reduce TLB
     // lookup overheads. For a given Mask, what is the address shift amount
@@ -76,10 +77,17 @@ struct PTE
     int AddrShiftAmount;
     int OffsetMask;
 
+    /* same as PROT_xxx */
+    #define PAGE_READ      0x0001
+    #define PAGE_WRITE     0x0002
+    #define PAGE_EXEC      0x0004
+    #define PAGE_BITS      (PAGE_READ | PAGE_WRITE | PAGE_EXEC)
+    #define PAGE_VALID     0x0008
+
     bool
     Valid()
     {
-        return (V0 | V1);
+        return (V);
     };
 
     void serialize(CheckpointOut &cp) const;

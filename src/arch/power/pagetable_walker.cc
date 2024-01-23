@@ -1941,6 +1941,8 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
     doWrite = true;
     doEndWalk = true;
     Addr paddr = deposit64(pte.pte1 & HPTE64_R_RPN, 0, apshift, eaddr);
+
+    walker->tlb->insert(eaddr, paddr, prot, pte.pte1 & HPTE64_R_I, apshift, tc->threadId());
     DPRINTF(PageTableWalker,"paddr:0x%016lx\n", paddr);
     req->setPaddr(paddr);
     endWalk();
