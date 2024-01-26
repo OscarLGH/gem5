@@ -682,6 +682,7 @@ def makePowerSystem(mem_mode, numCPUs=1, mdesc=None, cmdline=None):
                        AddrRange(0xC0000000, 0xEFFFFFFF),
                        AddrRange(0xFFFF5000, 0xFFFFFFFF),
                        AddrRange(0xF0000000, 0xFFFEFFFF),
+                       AddrRange(0x100000000, 0x3ffffffff)
                        ]
     self.bridge.master = self.iobus.slave
     self.bridge.slave = self.membus.master

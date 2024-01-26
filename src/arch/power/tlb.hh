@@ -95,7 +95,6 @@ class TLB : public BaseTLB
 {
   protected:
     typedef std::multimap<Addr, int> PageTable;
-    PageTable lookupTable;      // Quick lookup into page table
 
     PowerISA::PTE *table;       // the Page Table
     int size;                   // TLB Size

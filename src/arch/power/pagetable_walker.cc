@@ -1272,7 +1272,7 @@ void Walker::slbie_helper(ThreadContext * tc, Addr eaddr)
     }
 
     if (slb->esid & SLB_ESID_V) {
-        printf("invalidates slb entry: esid = %llx TID = %d\n", slb->esid, tc->threadId());
+        //printf("invalidates slb entry: esid = %llx TID = %d\n", slb->esid, tc->threadId());
         slb->esid &= ~SLB_ESID_V;
         /*
          * XXX: given the fact that segment size is 256 MB or 1TB,

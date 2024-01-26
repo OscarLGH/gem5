@@ -812,13 +812,26 @@ decode PO default Unknown::unknown() {
             598: sync({{ }}, [ IsReadBarrier, IsWriteBarrier ]);
             854: eieio({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
 
-            306: tlbie({{ dynamic_cast<PowerISA::TLB *>(
-                                xc->tcBase()->getMMUPtr()->dtb)->walker->slb_table[xc->tcBase()->threadId()][0];Rb}}, [ IsNonSpeculative, IsSquashAfter ]);
-            274: tlbiel({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
-            566: tlbsync({{ }}, [ IsNonSpeculative, IsSquashAfter ]);
+            306: tlbie({{
+                        xc->tcBase()->getMMUPtr()->dtb->flushAll();
+                        xc->tcBase()->getMMUPtr()->itb->flushAll();
+                        //printf("tlbie:Rb = %llx\n", Rb);
+                        }}, [ IsNonSpeculative, IsSquashAfter ]);
+            274: tlbiel({{
+                xc->tcBase()->getMMUPtr()->dtb->flushAll();
+                xc->tcBase()->getMMUPtr()->itb->flushAll();
+                //printf("tlbiel:Rb = %llx\n", Rb);
+                }}, [ IsNonSpeculative, IsSquashAfter ]);
+            566: tlbsync({{
+                //printf("tlbsync:Rb = %llx\n", Rb);
+                xc->tcBase()->getMMUPtr()->dtb->flushAll();
+                xc->tcBase()->getMMUPtr()->itb->flushAll();
+            }}, [ IsNonSpeculative, IsSquashAfter ]);
 
             434: IntLogicOp::slbie({{
                 //printf("slbie. Rb = %llx ea = %llx class = %x seg size = %x\n", Rb, Rb & ~0xfffffff, Rb & 0x8000000, (Rb >> 25) & 0x3);
+                xc->tcBase()->getMMUPtr()->dtb->flushAll();
+                xc->tcBase()->getMMUPtr()->itb->flushAll();
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slbie_helper(xc->tcBase(), Rb);
                 dynamic_cast<PowerISA::TLB *>(
@@ -827,6 +840,8 @@ decode PO default Unknown::unknown() {
             498: IntLogicOp::slbia({{
                 IH;
                 for (int i = 1; i < 64; i++) {
+                    xc->tcBase()->getMMUPtr()->dtb->flushAll();
+                    xc->tcBase()->getMMUPtr()->itb->flushAll();
                     dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->slb_table[xc->tcBase()->threadId()][i].esid = 0;
                     dynamic_cast<PowerISA::TLB *>(
@@ -834,6 +849,8 @@ decode PO default Unknown::unknown() {
                 }
             }}, [ IsNonSpeculative, IsSquashAfter ]);
             402: IntLogicOp::slbmte({{
+                xc->tcBase()->getMMUPtr()->dtb->flushAll();
+                xc->tcBase()->getMMUPtr()->itb->flushAll();
                 int index = Rb & 0x7ff;
                 dynamic_cast<PowerISA::TLB *>(
                                 xc->tcBase()->getMMUPtr()->itb)->walker->ppc_store_slb(index, xc->tcBase()->threadId(), Rb & (~0x7ffULL), Rs);

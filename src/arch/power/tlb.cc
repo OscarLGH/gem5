@@ -84,22 +84,16 @@ TLB::lookup(Addr vpn, uint8_t tid) const
 {
     // assume not found...
     PowerISA::PTE *retval = NULL;
-    PageTable::const_iterator i = lookupTable.find(vpn & ~((1ULL << 24) - 1));
-    if (i != lookupTable.end()) {
-        DPRINTF(TLB, "lookupTable found.\n");
-        while (i->first == (vpn & ~((1ULL << 24) - 1))) {
-            int index = i->second;
-            PowerISA::PTE *pte = &table[index];
-            Addr Mask = pte->Mask;
-            Addr VPN  = pte->VPN;
-            if (((vpn & Mask) == (VPN & Mask))
-               && pte->V && (tid == pte->thread_id)) {
+    for (int i = 0; i < size; i++) {
+        PowerISA::PTE *pte = &table[i];
+        Addr Mask = pte->Mask;
+        Addr VPN  = pte->VPN;
+        if (((vpn & Mask) == (VPN & Mask))
+            && pte->V && (tid == pte->thread_id)) {
 
-                // We have a VPN + ASID Match
-                retval = pte;
-                break;
-            }
-            ++i;
+            // We have a VPN + ASID Match
+            retval = pte;
+            break;
         }
     }
 
@@ -142,9 +136,6 @@ TLB::insert(Addr vfn, Addr pfn, int prot, bool c, int page_shift, int tid)
         pte->V = 1;
         pte->thread_id = tid;
 
-
-        lookupTable.insert(std::make_pair(table[free_idx].VPN, free_idx));
-
         DPRINTF(TLB, "insert free:%llx, tid %#x PTE->Mask = %llx PTE->VPN = %llx\n", vfn, (int)tid,
             pte->Mask, pte->VPN);
 
@@ -163,13 +154,6 @@ TLB::insert(Addr vfn, Addr pfn, int prot, bool c, int page_shift, int tid)
         pte->V = 1;
         pte->thread_id = tid;
 
-
-        PageTable::iterator i = lookupTable.find(vfn);
-        if (i != lookupTable.end()) {
-            lookupTable.erase(i);
-        }
-        lookupTable.insert(std::make_pair(table[min_tick_idx].VPN, min_tick_idx));
-
         DPRINTF(TLB, "insert oldest:%llx, tid %#x PTE->Mask = %llx PTE->VPN = %llx\n", vfn, (int)tid,
             pte->Mask, pte->VPN);
 
@@ -181,7 +165,6 @@ TLB::flushAll()
 {
     DPRINTF(TLB, "flushAll\n");
     memset(table, 0, sizeof(PowerISA::PTE[size]));
-    lookupTable.clear();
     nlu = 0;
 }
 
@@ -206,7 +189,6 @@ TLB::unserialize(CheckpointIn &cp)
     for (int i = 0; i < size; i++) {
         ScopedCheckpointSection sec(cp, csprintf("PTE%d", i));
         if (table[i].V || table[i].V) {
-            lookupTable.insert(std::make_pair(table[i].VPN, i));
         }
     }
 }
