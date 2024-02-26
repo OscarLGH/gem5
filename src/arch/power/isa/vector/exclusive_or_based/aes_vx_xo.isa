@@ -1,4 +1,4 @@
-format IntArithOp{
+format VectorIntArithOp{
     1480: vsbox({{
         Crypto aes;
         uint8_t state[16];

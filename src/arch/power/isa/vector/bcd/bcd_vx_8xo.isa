@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     1:bcdadd({{                                            // wwf
         /*
             VSR[VRT+32] ← bcd_ADD(VSR[VRA+32],VSR[VRB+32],PS)

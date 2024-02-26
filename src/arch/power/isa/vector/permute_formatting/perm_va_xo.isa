@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     43: vperm({{
         uint64_t vsrc[4];
         uint8_t *ppp = (uint8_t *)vsrc;

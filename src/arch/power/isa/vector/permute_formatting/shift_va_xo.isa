@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     44: vsldoi({{
         uint64_t vsrc[4];
         uint8_t *ppp = (uint8_t *)vsrc;

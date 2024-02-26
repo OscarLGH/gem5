@@ -1,4 +1,4 @@
-format LoadIndexOp {
+format VsxLoadIndexOp {
     588: lxsdx({{
         VSt_ud[1] = Mem_ud;
         VSt_ud[0] = 0;

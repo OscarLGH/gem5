@@ -1,4 +1,4 @@
-format IntArithOp{
+format VectorIntArithOp{
 
     1032:vpmsumb({{
         uint16_t prod[16];

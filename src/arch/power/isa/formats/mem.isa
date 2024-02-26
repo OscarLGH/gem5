@@ -279,54 +279,6 @@ def format StoreIndexOp(memacc_code, update_code = {{ }},
                  'MemIndexOp', 'Store', mem_flags, inst_flags)
 }};
 
-def format VecLoadIndexOp(memacc_code, update_code = {{ }},
-                       ea_code = {{ EA = ((Ra + Rb) & ~(0xfULL)); }},
-                       ea_code_ra0 = {{ EA = Rb & ~(0xfULL); }},
-                       mem_flags = [], inst_flags = []) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
-                 'MemIndexOp', 'Load', mem_flags, inst_flags)
-}};
-
-
-def format VecStore16IndexOp(memacc_code, update_code = {{ }},
-                        ea_code = {{ EA = ((Ra + Rb) & ~(0xfULL)); }},
-                        ea_code_ra0 = {{ EA = Rb & ~(0xfULL); }},
-                        mem_flags = [], inst_flags = []) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
-                 'MemIndexOp', 'Store', mem_flags, inst_flags)
-}};
-
-def format VecStore8IndexOp(memacc_code, update_code = {{ }},
-                        ea_code = {{ EA = ((Ra + Rb) & ~(0x7ULL)); }},
-                        ea_code_ra0 = {{ EA = Rb & ~(0x7ULL); }},
-                        mem_flags = [], inst_flags = []) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
-                 'MemIndexOp', 'Store', mem_flags, inst_flags)
-}};
-
-def format VecStore4IndexOp(memacc_code, update_code = {{ }},
-                        ea_code = {{ EA = ((Ra + Rb) & ~(0x3ULL)); }},
-                        ea_code_ra0 = {{ EA = Rb & ~(0x3ULL); }},
-                        mem_flags = [], inst_flags = []) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
-                 'MemIndexOp', 'Store', mem_flags, inst_flags)
-}};
-
-def format VecStore2IndexOp(memacc_code, update_code = {{ }},
-                        ea_code = {{ EA = ((Ra + Rb) & ~(0x1ULL)); }},
-                        ea_code_ra0 = {{ EA = Rb & ~(0x1ULL); }},
-                        mem_flags = [], inst_flags = []) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
-                 'MemIndexOp', 'Store', mem_flags, inst_flags)
-}};
-
-
-
 def format LoadIndexUpdateOp(memacc_code, ea_code = {{ EA = Ra + Rb; }},
                              mem_flags = [], inst_flags = []) {{
 

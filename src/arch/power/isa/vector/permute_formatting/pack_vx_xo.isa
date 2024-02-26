@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     782: vpkpx({{
         uint64_t vsrc[4];
         vsrc[3] = Va_ud[1];

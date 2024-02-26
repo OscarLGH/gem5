@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     //VSCR
     1604: mtvscr({{
         VSCR = Vb_uw[0];

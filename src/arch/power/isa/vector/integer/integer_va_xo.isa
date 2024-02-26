@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     60:vaddeuqm({{
         Vt_uq[0] = Va_uq[0] + Vb_uq[0] + (Vc_uq[0] & 0x1);
     }});

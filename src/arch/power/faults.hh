@@ -63,10 +63,13 @@ enum pcSet
     InstrStoragePCSet = 0x400,
     InstrSegmentPCSet = 0x480,
     DirectExternalPCSet = 0x500,
+    FloatingPointUnavailable = 0x800,
     DecrementerPCSet = 0x900,
     PriDoorbellPCSet = 0xA00,
     HypDoorbellPCSet = 0xe80,
     SystemCallPCSet = 0xC00,
+    VectorUnavailable = 0xF20,
+    VSXUnavailable = 0xF40
 };
 
 /* SRR1[42:45] wakeup fields for System Reset Interrupt */
@@ -111,9 +114,9 @@ class PowerFault : public FaultBase
       {
         Msr msr = tc->readIntReg(INTREG_MSR);
         msr.tm = 0;
-        msr.vec = 0;
-        msr.vsx = 0;
-        msr.fp = 0;
+        //msr.vec = 0;
+        //msr.vsx = 0;
+        //msr.fp = 0;
         msr.pr = 0;
         msr.pmm = 0;
         msr.ir = 0;
@@ -206,7 +209,7 @@ class ResetInterrupt : public PowerFault
     virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
                        StaticInst::nullStaticInstPtr)
     {
-      DPRINTF(Fault, "System Reset Interrupt invoked\n");
+      //DPRINTF(Fault, "System Reset Interrupt invoked\n");
       tc->setIntReg(INTREG_SRR0 , tc->instAddr());
       uint64_t powersaving = tc->readIntReg(INTREG_PMC6);
       uint64_t cause = tc->readIntReg(INTREG_PMC5);
@@ -483,6 +486,72 @@ class ProgramPriInterrupt : public ProgramInterrupt
                        StaticInst::nullStaticInstPtr)
     {
       ProgramInterrupt::invoke(tc, inst, setBitMask(SRR1_PRI_BIT));
+    }
+};
+
+class FpUnavailFault : public PowerFault
+{
+public:
+  FpUnavailFault()
+    : PowerFault("FP Unavail")
+  {
+  }
+  virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
+                       StaticInst::nullStaticInstPtr)
+    {
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      DPRINTF(Fault, "FP Unavailable Fault.pc = %llx tid = %d.\n",
+        tc->pcState().instAddr(), tc->threadId());
+      PowerFault::updateMsr(tc);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(FloatingPointUnavailable,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
+      delete pc;
+    }
+};
+
+class VectorUnavailFault : public PowerFault
+{
+public:
+  VectorUnavailFault()
+    : PowerFault("Vector Unavail")
+  {
+  }
+  virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
+                       StaticInst::nullStaticInstPtr)
+    {
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      DPRINTF(Fault, "Vector Unavailable Fault.pc = %llx tid = %d.\n",
+        tc->pcState().instAddr(), tc->threadId());
+      PowerFault::updateMsr(tc);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(VectorUnavailable,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
+      delete pc;
+    }
+};
+
+class VSXUnavailFault : public PowerFault
+{
+public:
+  VSXUnavailFault()
+    : PowerFault("VSX Unavailable")
+  {
+  }
+  virtual void invoke(ThreadContext * tc, const StaticInstPtr &inst =
+                       StaticInst::nullStaticInstPtr)
+    {
+      tc->setIntReg(INTREG_SRR0 , tc->instAddr());
+      DPRINTF(Fault, "VSX Unavailable Fault.pc = %llx tid = %d.\n",
+        tc->pcState().instAddr(), tc->threadId());
+      PowerFault::updateMsr(tc);
+      Msr msr = tc->readIntReg(INTREG_MSR);
+      PCState *pc = new PCState(VSXUnavailable,
+        msr.le ? ByteOrder::little : ByteOrder::big);
+      tc->pcState(*pc);
+      delete pc;
     }
 };
 

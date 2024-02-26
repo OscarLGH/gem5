@@ -57,5 +57,8 @@
 //Include the unknown format
 ##include "unknown.isa"
 
+//Include the vector format
+##include "vector.isa"
+
 //Include the vsx format
 ##include "vsx.isa"

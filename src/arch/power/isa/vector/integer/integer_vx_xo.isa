@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     384: vaddcuw({{
         for (auto i = 0; i < 4; i++) {
             Vt_uw[i] =

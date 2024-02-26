@@ -1,4 +1,4 @@
-format StoreIndexOp {
+format VsxStoreIndexOp {
     716: stxsdx({{
         Mem_ud = VSs_ud[1];
     }});

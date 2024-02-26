@@ -20,7 +20,7 @@ format VecLoadIndexOp {
     }});
 
 }
-format IntArithOp {
+format VectorIntArithOp {
     6: lvsl({{
         uint64_t EA = RA ? Ra + Rb : Rb;
         uint8_t sh = bits(EA, 3, 0);

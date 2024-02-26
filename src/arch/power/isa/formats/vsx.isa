@@ -44,23 +44,20 @@ let {{
         CR = cr;
     '''
 
-}};
-
-// Primary format for floating point operate instructions:
-def format VsxFloatOp(code, inst_flags = []) {{
-    iop = InstObjParams(name, Name, 'FloatOp',
-                        {"code": code},
-                        inst_flags)
-    header_output = BasicDeclare.subst(iop)
-    decoder_output = BasicConstructor.subst(iop)
-    decode_block = BasicDecode.subst(iop)
-    exec_output = BasicExecute.subst(iop)
+    vsxCheckMsrCode = '''
+        Msr msr = MSR;
+        if (msr.vsx == 0) {
+            fault = std::make_shared<VSXUnavailFault>();
+            return fault;
+        }
+    '''
 }};
 
 // Floating point operations that compute the CR1 code if RC is set. No other
 // special registers are touched using these operations.
 def format VsxFloatRCCheckOp(code, inst_flags = []) {{
 
+    code = code + vsxCheckMsrCode
     # Code when Rc is set
     code_rc1 = code + readFPSCRCode + computeCR1Code
 
@@ -85,6 +82,8 @@ def format VsxFloatRCCheckOp(code, inst_flags = []) {{
 // to alter lots of special registers depending on the result of the
 // operation. The result is always in Ft_sf.
 def format VsxFloatArithOp(code, inst_flags = []) {{
+
+    code = code + vsxCheckMsrCode
 
     # Code when Rc is set
     code_rc1 = code + readFPSCRCode
@@ -111,6 +110,8 @@ def format VsxFloatArithOp(code, inst_flags = []) {{
 // operation. The result is always in Ft_sf.
 def format VsxFloatConvertOp(code, inst_flags = []) {{
 
+    code = code + vsxCheckMsrCode
+
     # Code when Rc is set
     code_rc1 = code + readFPSCRCode
 
@@ -128,4 +129,25 @@ def format VsxFloatConvertOp(code, inst_flags = []) {{
     header_output += header_output_rc1
     decoder_output += decoder_output_rc1
     exec_output += exec_output_rc1
+}};
+
+def format VsxLoadIndexOp(memacc_code, update_code = {{ }},
+                       ea_code = {{ EA = Ra + Rb; }},
+                       ea_code_ra0 = {{ EA = Rb; }},
+                       mem_flags = [], inst_flags = []) {{
+
+    (header_output, decoder_output, decode_block, exec_output) = \
+        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
+                 'MemIndexOp', 'Load', mem_flags, inst_flags)
+}};
+
+
+def format VsxStoreIndexOp(memacc_code, update_code = {{ }},
+                        ea_code = {{ EA = Ra + Rb; }},
+                        ea_code_ra0 = {{ EA = Rb; }},
+                        mem_flags = [], inst_flags = []) {{
+
+    (header_output, decoder_output, decode_block, exec_output) = \
+        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
+                 'MemIndexOp', 'Store', mem_flags, inst_flags)
 }};

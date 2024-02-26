@@ -1,4 +1,4 @@
-format VsxFloatArithOp {
+format VectorFloatOp {
     46: vmaddfp({{
         for (auto i = 0; i < 4; i++) {
             float tmp;

@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     6:vcmpequb({{
         uint32_t all_true = 1;
         uint32_t all_false = 1;

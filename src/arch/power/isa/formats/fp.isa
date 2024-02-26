@@ -43,10 +43,21 @@ let {{
                  (fpscr_rc.vx << 1) | fpscr_rc.ox;
         CR = cr;
     '''
+
+    fpCheckMsrCode = '''
+        Msr msr = MSR;
+        if (msr.fp == 0) {
+            fault = std::make_shared<FpUnavailFault>();
+            return fault;
+        }
+    '''
 }};
 
 // Primary format for floating point operate instructions:
 def format FloatOp(code, inst_flags = []) {{
+
+    code = code + fpCheckMsrCode
+
     iop = InstObjParams(name, Name, 'FloatOp',
                         {"code": code},
                         inst_flags)
@@ -59,6 +70,8 @@ def format FloatOp(code, inst_flags = []) {{
 // Floating point operations that compute the CR1 code if RC is set. No other
 // special registers are touched using these operations.
 def format FloatRCCheckOp(code, inst_flags = []) {{
+
+    code = code + fpCheckMsrCode
 
     # Code when Rc is set
     code_rc1 = code + readFPSCRCode + computeCR1Code
@@ -85,6 +98,8 @@ def format FloatRCCheckOp(code, inst_flags = []) {{
 // operation. The result is always in Ft_sf.
 def format FloatArithOp(code, inst_flags = []) {{
 
+    code = code + fpCheckMsrCode
+
     # Code when Rc is set
     code_rc1 = code + readFPSCRCode
 
@@ -109,6 +124,8 @@ def format FloatArithOp(code, inst_flags = []) {{
 // to alter lots of special registers depending on the result of the
 // operation. The result is always in Ft_sf.
 def format FloatConvertOp(code, inst_flags = []) {{
+
+    code = code + fpCheckMsrCode
 
     # Code when Rc is set
     code_rc1 = code + readFPSCRCode

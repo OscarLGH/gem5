@@ -36,7 +36,7 @@
 #include "debug/Interrupt.hh"
 #include "params/PowerInterrupts.hh"
 
-#define NumInterruptLevels 8
+#define NumInterruptLevels 64
 
 #define SystemReset 0 //System Reset Interrupt(Highest Priority)
 #define MachineCheck 1 //Machine Check Interrupt

@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     45: vpermxor({{
         uint8_t indexA;
         uint8_t indexB;

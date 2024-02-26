@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     385: decode NUM_385 {
         7:bcdcfn({{                                            // wwf
             /*
