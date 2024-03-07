@@ -1,4 +1,4 @@
-format LoadDispOp {
+format FpLoadDispOp {
     48: lfs({{
         double dst = Mem_sf;
         Ft_df[1] = dst;
@@ -9,7 +9,7 @@ format LoadDispOp {
     }});
 }
 
-format LoadDispUpdateOp {
+format FpLoadDispUpdateOp {
     49: lfsu({{
         double dst = Mem_sf;
         Ft_df[1] = dst;
@@ -20,7 +20,7 @@ format LoadDispUpdateOp {
     }});
 }
 
-format StoreDispOp {
+format FpStoreDispOp {
     52: stfs({{
         double dst = Fs_df[1];
         Mem_sf = dst;
@@ -31,7 +31,7 @@ format StoreDispOp {
     }});
 }
 
-format StoreDispUpdateOp {
+format FpStoreDispUpdateOp {
     53: stfsu({{
         double dst = Fs_df[1];
         Mem_sf = dst;

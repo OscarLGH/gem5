@@ -145,3 +145,108 @@ def format FloatConvertOp(code, inst_flags = []) {{
     decoder_output += decoder_output_rc1
     exec_output += exec_output_rc1
 }};
+
+def format FpLoadIndexOp(memacc_code, update_code = {{ }},
+                       ea_code = {{ EA = Ra + Rb; }},
+                       ea_code_ra0 = {{ EA = Rb; }},
+                       mem_flags = [], inst_flags = []) {{
+    memacc_code = memacc_code + fpCheckMsrCode
+    (header_output, decoder_output, decode_block, exec_output) = \
+        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
+                 'MemIndexOp', 'Load', mem_flags, inst_flags)
+}};
+
+
+def format FpStoreIndexOp(memacc_code, update_code = {{ }},
+                        ea_code = {{ EA = Ra + Rb; }},
+                        ea_code_ra0 = {{ EA = Rb; }},
+                        mem_flags = [], inst_flags = []) {{
+    memacc_code = memacc_code + fpCheckMsrCode
+    (header_output, decoder_output, decode_block, exec_output) = \
+        GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
+                 'MemIndexOp', 'Store', mem_flags, inst_flags)
+}};
+
+def format FpLoadIndexUpdateOp(memacc_code, ea_code = {{ EA = Ra + Rb; }},
+                             mem_flags = [], inst_flags = []) {{
+
+    memacc_code = memacc_code + fpCheckMsrCode
+
+    # Add in the update code
+    update_code = 'Ra = EA;'
+
+    # Generate the class
+    (header_output, decoder_output, decode_block, exec_output) = \
+        LoadStoreBase(name, Name, ea_code, memacc_code, update_code,
+                      mem_flags, inst_flags,
+                      base_class = 'MemIndexOp',
+                      decode_template = CheckRaRtDecode,
+                      exec_template_base = 'Load')
+}};
+
+def format FpStoreIndexUpdateOp(memacc_code, ea_code = {{ EA = Ra + Rb; }},
+                              mem_flags = [], inst_flags = []) {{
+
+    memacc_code = memacc_code + fpCheckMsrCode
+
+    # Add in the update code
+    update_code = 'Ra = EA;'
+
+    # Generate the class
+    (header_output, decoder_output, decode_block, exec_output) = \
+        LoadStoreBase(name, Name, ea_code, memacc_code, update_code,
+                      mem_flags, inst_flags,
+                      base_class = 'MemIndexOp',
+                      decode_template = CheckRaZeroDecode,
+                      exec_template_base = 'Store')
+}};
+
+def format FpLoadDispOp(memacc_code, ea_code = {{ EA = Ra + d; }},
+                      ea_code_ra0 = {{ EA = d; }},
+                      mem_flags = [], inst_flags = []) {{
+    memacc_code = memacc_code + fpCheckMsrCode
+    (header_output, decoder_output, decode_block, exec_output) = \
+        GenMemOp(name, Name, memacc_code, '', ea_code, ea_code_ra0,
+                 'MemDispOp', 'Load', mem_flags, inst_flags)
+}};
+
+def format FpLoadDispUpdateOp(memacc_code, ea_code = {{ EA = Ra + d; }},
+                            mem_flags = [], inst_flags = []) {{
+    memacc_code = memacc_code + fpCheckMsrCode
+
+    # Add in the update code
+    update_code = 'Ra = EA;'
+
+    # Generate the class
+    (header_output, decoder_output, decode_block, exec_output) = \
+        LoadStoreBase(name, Name, ea_code, memacc_code, update_code,
+                      mem_flags, inst_flags,
+                      base_class = 'MemDispOp',
+                      decode_template = CheckRaRtDecode,
+                      exec_template_base = 'Load')
+}};
+
+def format FpStoreDispOp(memacc_code, ea_code = {{ EA = Ra + d; }},
+                       ea_code_ra0 = {{ EA = d; }},
+                       mem_flags = [], inst_flags = []) {{
+    memacc_code = memacc_code + fpCheckMsrCode
+    (header_output, decoder_output, decode_block, exec_output) = \
+        GenMemOp(name, Name, memacc_code, '', ea_code, ea_code_ra0,
+                 'MemDispOp', 'Store', mem_flags, inst_flags)
+}};
+
+def format FpStoreDispUpdateOp(memacc_code, ea_code = {{ EA = Ra + d; }},
+                             mem_flags = [], inst_flags = []) {{
+
+    memacc_code = memacc_code + fpCheckMsrCode
+    # Add in the update code
+    update_code = 'Ra = EA;'
+
+    # Generate the class
+    (header_output, decoder_output, decode_block, exec_output) = \
+        LoadStoreBase(name, Name, ea_code, memacc_code, update_code,
+                      mem_flags, inst_flags,
+                      base_class = 'MemDispOp',
+                      decode_template = CheckRaZeroDecode,
+                      exec_template_base = 'Store')
+}};

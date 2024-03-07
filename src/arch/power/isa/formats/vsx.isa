@@ -136,6 +136,7 @@ def format VsxLoadIndexOp(memacc_code, update_code = {{ }},
                        ea_code_ra0 = {{ EA = Rb; }},
                        mem_flags = [], inst_flags = []) {{
 
+    memacc_code = memacc_code + vsxCheckMsrCode
     (header_output, decoder_output, decode_block, exec_output) = \
         GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,
                  'MemIndexOp', 'Load', mem_flags, inst_flags)
@@ -146,6 +147,7 @@ def format VsxStoreIndexOp(memacc_code, update_code = {{ }},
                         ea_code = {{ EA = Ra + Rb; }},
                         ea_code_ra0 = {{ EA = Rb; }},
                         mem_flags = [], inst_flags = []) {{
+    memacc_code = memacc_code + vsxCheckMsrCode
 
     (header_output, decoder_output, decode_block, exec_output) = \
         GenMemOp(name, Name, memacc_code, update_code, ea_code, ea_code_ra0,

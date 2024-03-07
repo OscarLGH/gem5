@@ -1,4 +1,4 @@
-format LoadIndexOp {
+format FpLoadIndexOp {
     535: lfsx({{
         double dst = Mem_sf;
         Ft_df[1] = dst;

@@ -1,4 +1,4 @@
-format StoreIndexOp {
+format FpStoreIndexOp {
     663: stfsx({{
         double dst = Fs_df[1];
         Mem_sf = dst;
@@ -14,7 +14,7 @@ format StoreIndexOp {
     }});
 }
 
-format StoreIndexUpdateOp {
+format FpStoreIndexUpdateOp {
     695: stfsux({{
         double dst = Fs_df[1];
         Mem_sf = dst;

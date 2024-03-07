@@ -1,4 +1,4 @@
-format LoadIndexUpdateOp {
+format FpLoadIndexUpdateOp {
     567: lfsux({{
         double dst = Mem_sf;
         Ft_df[1] = dst;
