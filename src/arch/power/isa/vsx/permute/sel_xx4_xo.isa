@@ -1,5 +1,5 @@
 
-format VsxFloatArithOp {
+format VsxIntArithOp {
     3:xxsel({{
         __uint128_t mask = VSc_uq[0];
         VSt_uq[0] = (VSa_uq[0] & ~mask) | (VSb_uq[0] & mask);

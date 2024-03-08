@@ -1,23 +1,73 @@
  format IntArithOp {
     51:mfvsrd({{
+
+        Msr msr = MSR;
+        if (XX_SX == 0 && msr.fp == 0) {
+            fault = std::make_shared<FpUnavailFault>();
+            return fault;
+        }
+
+        if (XX_SX == 1 && msr.vec == 0) {
+            fault = std::make_shared<VectorUnavailFault>();
+            return fault;
+        }
+
         Ra_sd = VSs_sd[1];
     }});
 
     115:mfvsrwz({{
+        
+        Msr msr = MSR;
+        if (XX_SX == 0 && msr.fp == 0) {
+            fault = std::make_shared<FpUnavailFault>();
+            return fault;
+        }
+
+        if (XX_SX == 1 && msr.vec == 0) {
+            fault = std::make_shared<VectorUnavailFault>();
+            return fault;
+        }
+
         Ra_ud = VSs_uw[2];
     }});
 
     179:mtvsrd({{
+
+        Msr msr = MSR;
+        if (XX_SX == 0 && msr.fp == 0) {
+            fault = std::make_shared<FpUnavailFault>();
+            return fault;
+        }
+
+        if (XX_SX == 1 && msr.vec == 0) {
+            fault = std::make_shared<VectorUnavailFault>();
+            return fault;
+        }
+
         VSt_sd[1] = Ra_sd;
         VSt_sd[0] = 0;
     }});
 
     211:mtvsrwa({{
+
+        Msr msr = MSR;
+        if (XX_SX == 0 && msr.fp == 0) {
+            fault = std::make_shared<FpUnavailFault>();
+            return fault;
+        }
+
         VSt_sd[1] = Ra_sw;
         VSt_sd[0] = 0;
     }});
 
     243:mtvsrwz({{
+
+        Msr msr = MSR;
+        if (XX_SX == 0 && msr.fp == 0) {
+            fault = std::make_shared<FpUnavailFault>();
+            return fault;
+        }
+
         VSt_ud[1] = Ra_uw;
         VSt_ud[0] = 0;
     }});

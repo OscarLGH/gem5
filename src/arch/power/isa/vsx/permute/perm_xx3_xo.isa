@@ -1,4 +1,4 @@
-format VsxFloatArithOp {
+format VsxIntArithOp {
     18: xxmrghw({{
         __uint128_t vra_128 = VSa_uq[0];
         __uint128_t vrb_128 = VSb_uq[0];

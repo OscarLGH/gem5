@@ -1,4 +1,4 @@
-format IntArithOp {
+format VsxIntArithOp {
     130:xxland({{
         for (auto i = 0; i < 2; i++) {
             VSt_ud[i] = VSa_ud[i] & VSb_ud[i];

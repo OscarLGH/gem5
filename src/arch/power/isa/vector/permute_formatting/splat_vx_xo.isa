@@ -1,4 +1,4 @@
-format IntArithOp {
+format VectorIntArithOp {
     524: vspltb({{
         __uint128_t vrb_128 = Vb_uq[0];
         __uint128_t vrt_128 = Vt_uq[0];
