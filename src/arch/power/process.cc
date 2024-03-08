@@ -351,6 +351,9 @@ PowerProcess::argsInit(int pageSize)
     msr.me = 1;
     msr.ir = 1;
     msr.dr = 1;
+    msr.fp = 1;
+    msr.vec = 1;
+    msr.vsx = 1;
     msr.ri = 1;
     msr.le = isLittleEndian;
     tc->setIntReg(INTREG_MSR, msr);
