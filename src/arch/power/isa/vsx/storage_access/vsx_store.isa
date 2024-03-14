@@ -14,18 +14,32 @@ format VsxStoreIndexOp {
     972: stxvd2x({{
         __uint128_t mem_val;
         uint64_t *ptr = (uint64_t *)&mem_val;
-        ptr[0] = VSs_ud[1];
-        ptr[1] = VSs_ud[0];
+        Msr msr_v = MSR;
+        if (msr_v.le) {
+            ptr[0] = VSs_ud[1];
+            ptr[1] = VSs_ud[0];
+        } else {
+            ptr[1] = VSs_ud[1];
+            ptr[0] = VSs_ud[0];
+        }
         Mem_uq = mem_val;
     }});
 
     908: stxvw4x({{
         __uint128_t mem_val;
         uint32_t *ptr = (uint32_t *)&mem_val;
-        ptr[0] = VSs_uw[3];
-        ptr[1] = VSs_uw[2];
-        ptr[2] = VSs_uw[1];
-        ptr[3] = VSs_uw[0];
+        Msr msr_v = MSR;
+        if (msr_v.le) {
+            ptr[3] = VSs_uw[3];
+            ptr[2] = VSs_uw[2];
+            ptr[1] = VSs_uw[1];
+            ptr[0] = VSs_uw[0];
+        } else {
+            ptr[0] = VSs_uw[3];
+            ptr[1] = VSs_uw[2];
+            ptr[2] = VSs_uw[1];
+            ptr[3] = VSs_uw[0];
+        }
         Mem_uq = mem_val;
     }});
 }

@@ -21,21 +21,41 @@ format VsxLoadIndexOp {
 
     844: lxvd2x({{
         uint64_t *val = (uint64_t *)&Mem_uq;
-        VSt_ud[1] = val[0];
-        VSt_ud[0] = val[1];
+        Msr msr_v = MSR;
+        if (msr_v.le) {
+            VSt_ud[1] = val[0];
+            VSt_ud[0] = val[1];
+        } else {
+            VSt_ud[0] = val[0];
+            VSt_ud[1] = val[1];
+        }
     }});
 
     332: lxvdsx({{
         uint64_t *val = (uint64_t *)&Mem_uq;
-        VSt_ud[1] = val[0];
-        VSt_ud[0] = val[0];
+        Msr msr_v = MSR;
+        if (msr_v.le) {
+            VSt_ud[1] = val[0];
+            VSt_ud[0] = val[0];
+        } else {
+            VSt_ud[0] = val[0];
+            VSt_ud[1] = val[0];
+        }
     }});
 
     780: lxvw4x({{
         uint32_t *val = (uint32_t *)&Mem_uq;
-        VSt_uw[0] = val[3];
-        VSt_uw[1] = val[2];
-        VSt_uw[2] = val[1];
-        VSt_uw[3] = val[0];
+        Msr msr_v = MSR;
+        if (msr_v.le) {
+            VSt_uw[0] = val[3];
+            VSt_uw[1] = val[2];
+            VSt_uw[2] = val[1];
+            VSt_uw[3] = val[0];
+        } else {
+            VSt_uw[3] = val[3];
+            VSt_uw[2] = val[2];
+            VSt_uw[1] = val[1];
+            VSt_uw[0] = val[0];
+        }
     }});
 }

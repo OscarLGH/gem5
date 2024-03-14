@@ -1,7 +1,6 @@
 format StoreIndexOp {
     135: stvebx({{
-        ThreadContext *tc = xc->tcBase();
-        Msr msr_v = tc->readIntReg(INTREG_MSR);
+        Msr msr_v = MSR;
         uint8_t eb = bits(EA, 3, 0);
         __uint128_t val_128 = Vs_uq[0];
         uint8_t *val = (uint8_t *)&val_128;
@@ -15,8 +14,7 @@ format StoreIndexOp {
 
 format VecStore2IndexOp {
     167: stvehx({{
-        ThreadContext *tc = xc->tcBase();
-        Msr msr_v = tc->readIntReg(INTREG_MSR);
+        Msr msr_v = MSR;
         uint8_t eb = bits(Ra + Rb, 3, 0);
         __uint128_t val_128 = Vs_uq[0];
         uint16_t *val = (uint16_t *)&val_128;
@@ -30,8 +28,7 @@ format VecStore2IndexOp {
 
 format VecStore4IndexOp {
     199: stvewx({{
-        ThreadContext *tc = xc->tcBase();
-        Msr msr_v = tc->readIntReg(INTREG_MSR);
+        Msr msr_v = MSR;
         uint8_t eb = bits(Ra + Rb, 3, 0);
         __uint128_t val_128 = Vs_uq[0];
         uint32_t *val = (uint32_t *)&val_128;
