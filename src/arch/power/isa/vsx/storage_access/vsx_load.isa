@@ -38,8 +38,8 @@ format VsxLoadIndexOp {
             VSt_ud[1] = val[0];
             VSt_ud[0] = val[0];
         } else {
-            VSt_ud[0] = val[0];
-            VSt_ud[1] = val[0];
+            VSt_ud[0] = val[1];
+            VSt_ud[1] = val[1];
         }
     }});
 
