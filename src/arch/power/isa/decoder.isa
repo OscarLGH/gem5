@@ -210,6 +210,17 @@ decode PO default Unknown::unknown() {
             MSR = insertBits(MSR,3,0,bits(SRR1,3,0));
             CFAR = CIA;
             NIA = SRR0 & -4ULL;
+            ThreadContext *tc = xc->tcBase();
+            auto pc = tc->pcState();
+            Msr msr = MSR;
+            if (msr.le) {
+                __parserAutoPCState.byteOrder(ByteOrder::little);
+                //printf("setting LE mode.\n");
+            } else {
+                __parserAutoPCState.byteOrder(ByteOrder::big);
+                //printf("setting BE mode.\n");
+            }
+            tc->pcState(pc);
         }}, [ IsPrivileged, IsNonSpeculative, IsSquashAfter ]);
         274:  MiscOp::hrfid({{
             if((bits(MSR,34,32)!=0x02)|(bits(HSRR1,34,32)!=0x00))
@@ -223,6 +234,17 @@ decode PO default Unknown::unknown() {
             MSR = insertBits(MSR,14,6,bits(HSRR1,14,6));
             MSR = insertBits(MSR,3,0,bits(HSRR1,3,0));
             NIA = HSRR0 & -4ULL;
+            ThreadContext *tc = xc->tcBase();
+            auto pc = tc->pcState();
+            Msr msr = MSR;
+            if (msr.le) {
+                __parserAutoPCState.byteOrder(ByteOrder::little);
+                //printf("setting LE mode.\n");
+            } else {
+                __parserAutoPCState.byteOrder(ByteOrder::big);
+                //printf("setting BE mode.\n");
+            }
+            tc->pcState(pc);
         }}, [ IsNonSpeculative, IsSquashAfter ]);
 
         format CondLogicOp {

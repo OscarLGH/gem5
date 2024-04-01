@@ -61,6 +61,13 @@ kernel(loader::createObjectFile(p.kernel_filename))
     _resetVect = bootloader->entryPoint();
     bootloaderSymtab = bootloader->symtab();
     kernelSymtab = kernel->symtab();
+    //loader::debugSymbolTable.insert(bootloaderSymtab);
+    auto relocated_loader_symtab = bootloaderSymtab.mask(0xffffff)
+            ->offset(0x30000000)
+            ->rename([](std::string &name) {
+                name = "skiboot_init." + name;
+            });
+    loader::debugSymbolTable.insert(*relocated_loader_symtab);
     loader::debugSymbolTable.insert(kernelSymtab);
     kernel->updateBias(p.kernel_addr);
 }
@@ -122,8 +129,11 @@ BareMetal::initState()
     warn_if(!bootloader->buildImage().write(system->physProxy),
             "Could not load sections to memory.");
 
-    warn_if(!kernel->buildImage().write(system->physProxy),
-            "Could not load kernel sections to memory.");
+    //warn_if(!kernel->buildImage().write(system->physProxy),
+    //        "Could not load kernel sections to memory.");
+    auto *kernel_elf = new loader::RawImage(params().kernel_filename);
+    kernel_elf->buildImage().offset(params().kernel_addr)
+        .write(system->physProxy);
 
     if (params().dtb_filename != "") {
         inform("Loading DTB file: %s at address %#x\n", params().dtb_filename,
@@ -137,7 +147,7 @@ BareMetal::initState()
         delete dtb_file;
 
         for (auto *tc: system->threads) {
-            //tc->setIntReg(11, params().dtb_addr);
+            //tc->setIntReg(27, params().dtb_addr);
         }
     } else {
         warn("No DTB file specified\n");
