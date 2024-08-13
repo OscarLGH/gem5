@@ -34,6 +34,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from m5.objects.Device import BasicPioDevice
+from m5.objects.Device import DmaDevice
 from m5.params import *
 from m5.proxy import *
 from m5.util.fdthelper import *
@@ -59,3 +60,26 @@ class PlicIntDevice(BasicPioDevice):
         node.append(FdtPropertyWords("interrupts", [self.interrupt_id]))
         node.append(FdtPropertyWords("interrupt-parent", state.phandle(plic)))
         return node
+    
+class PlicDmaDevice(DmaDevice):
+    type = "PlicDmaDevice"
+    cxx_header = "dev/riscv/plic_dma_device.hh"
+    cxx_class = "gem5::PlicDmaDevice"
+    abstract = True
+
+    platform = Param.Platform(Parent.any, "Platform")
+    pio_addr = Param.Addr("PIO Addr")
+    pio_size = Param.Addr("PIO Size")
+    interrupt_id = Param.Int("PLIC Interrupt ID")
+
+    def generatePlicDeviceNode(self, state, name):
+        node = self.generateBasicPioDeviceNode(
+            state, name, self.pio_addr, self.pio_size
+        )
+
+        plic = self.platform.unproxy(self).plic
+
+        node.append(FdtPropertyWords("interrupts", [self.interrupt_id]))
+        node.append(FdtPropertyWords("interrupt-parent", state.phandle(plic)))
+        return node
+

@@ -46,6 +46,8 @@ from m5.objects.Uart import RiscvUart8250
 from m5.params import *
 from m5.proxy import *
 from m5.util.fdthelper import *
+from m5.objects.NocDevice import NocDevice
+from m5.objects.QemuPcieBridge import QemuPcieBridge
 
 
 class GenericRiscvPciHost(GenericPciHost):
@@ -135,6 +137,8 @@ class HiFiveBase(Platform):
         """
         for device in self._on_chip_devices():
             device.pio = bus.mem_side_ports
+            if hasattr(device, "dma"):
+                device.dma = bus.cpu_side_ports
 
     def attachOffChipIO(self, bus):
         """Attach off-chip IO devices, needs modification
@@ -142,6 +146,8 @@ class HiFiveBase(Platform):
         """
         for device in self._off_chip_devices():
             device.pio = bus.mem_side_ports
+            if hasattr(device, "dma"):
+                device.dma = bus.cpu_side_ports
 
 
 class HiFive(HiFiveBase):
@@ -189,6 +195,9 @@ class HiFive(HiFiveBase):
         pci_mem_base=0x40000000,
     )
 
+    noc_device_1 = NocDevice(pio_addr=0x100000000, interrupt_id=0xb)
+    qemu_pcie_bridge = QemuPcieBridge(pio_addr=0x200000000, interrupt_id=0xb)
+
     # Uart
     uart = RiscvUart8250(pio_addr=0x10000000)
     # Int source ID to redirect console interrupts to
@@ -202,7 +211,7 @@ class HiFive(HiFiveBase):
 
     def _off_chip_devices(self):
         """Returns a list of off-chip peripherals"""
-        devices = [self.uart]
+        devices = [self.uart, self.noc_device_1, self.qemu_pcie_bridge]
         if hasattr(self, "disk"):
             devices.append(self.disk)
         if hasattr(self, "rng"):
