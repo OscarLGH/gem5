@@ -196,7 +196,11 @@ class HiFive(HiFiveBase):
     )
 
     noc_device_1 = NocDevice(pio_addr=0x100000000, interrupt_id=0xb)
-    qemu_pcie_bridge = QemuPcieBridge(pio_addr=0x200000000, interrupt_id=0xb)
+    noc_device_2 = NocDevice(pio_addr=0x120000000, interrupt_id=0xc)
+    noc_device_3 = NocDevice(pio_addr=0x140000000, interrupt_id=0xd)
+    noc_device_4 = NocDevice(pio_addr=0x180000000, interrupt_id=0xe)
+
+    qemu_pcie_bridge = QemuPcieBridge(pio_addr=0x200000000, interrupt_id=0xf)
 
     # Uart
     uart = RiscvUart8250(pio_addr=0x10000000)
@@ -211,7 +215,7 @@ class HiFive(HiFiveBase):
 
     def _off_chip_devices(self):
         """Returns a list of off-chip peripherals"""
-        devices = [self.uart, self.noc_device_1, self.qemu_pcie_bridge]
+        devices = [self.uart, self.noc_device_1, self.noc_device_2, self.noc_device_3, self.noc_device_4, self.qemu_pcie_bridge]
         if hasattr(self, "disk"):
             devices.append(self.disk)
         if hasattr(self, "rng"):

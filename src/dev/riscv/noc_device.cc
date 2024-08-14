@@ -15,11 +15,14 @@ namespace gem5
 namespace RiscvISA
 {
 
+static int dev_cnt = 0;
+
 NocDevice::NocDevice(const NocDeviceParams &params)
     : PlicDmaDevice(params),interrupt_id(params.interrupt_id),
     pollingEvent([this]{ polling_event_callback(); }, "polling event")
 {
-    this->schedule(pollingEvent, curTick() + 1);
+    node_index = dev_cnt++;
+    this->schedule(pollingEvent, nextCycle());
 }
 
 NocDevice::~NocDevice()
@@ -106,8 +109,8 @@ NocDevice::write(Addr offset, uint32_t value)
 void
 NocDevice::polling_event_callback()
 {
-    DPRINTF(NocDevice, "polling QEMU access...\n");
-    this->schedule(pollingEvent, curTick() + 1);
+    DPRINTF(NocDevice, "node %d polling external access...\n", node_index);
+    this->schedule(pollingEvent, nextCycle());
 }
 
 void

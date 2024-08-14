@@ -186,6 +186,7 @@ DRAM_OFFSET = 0x80000000
 DRAM_SIZE = 0x80000000
 
 system.mem_mode = mem_mode
+system.shared_backstore = "gem5_share_memory"
 #system.mem_ranges = [AddrRange(start=0x80000000, size=mdesc.mem())]
 
 for i in range(MAX_CHIP):

@@ -15,11 +15,16 @@ namespace gem5
 namespace RiscvISA
 {
 
+static int dev_cnt = 0;
+
 QemuPcieBridge::QemuPcieBridge(const QemuPcieBridgeParams &params)
     : PlicDmaDevice(params),interrupt_id(params.interrupt_id),
     pollingEvent([this]{ polling_event_callback(); }, "polling event")
 {
-    this->schedule(pollingEvent, curTick() + 1);
+    node_index = dev_cnt++;
+    this->schedule(pollingEvent, nextCycle());
+    const char *qemu_cmd_fifo = "qemu-fifo";
+    qemu_fd = open(qemu_cmd_fifo, O_RDONLY | O_NONBLOCK, 0644);
 }
 
 QemuPcieBridge::~QemuPcieBridge()
@@ -106,8 +111,15 @@ QemuPcieBridge::write(Addr offset, uint32_t value)
 void
 QemuPcieBridge::polling_event_callback()
 {
-    DPRINTF(QemuPcieBridge, "polling QEMU access...\n");
-    this->schedule(pollingEvent, curTick() + 1);
+    DPRINTF(QemuPcieBridge, "node %d polling QEMU access...\n", node_index);
+    qemuMmioCmd cmd;
+    ssize_t num_read = ::read(qemu_fd, (void *)&cmd, (size_t)sizeof(cmd));
+    if (num_read == -1) {
+      DPRINTF(QemuPcieBridge, "no qemu data.\n");
+    } else {
+      DPRINTF(QemuPcieBridge, "Got qemu cmd:addr = %llx size = %d ,%s.\n", cmd.addr, cmd.length, cmd.rw ? "R" : "W");
+    }
+    this->schedule(pollingEvent, nextCycle());
 }
 
 void

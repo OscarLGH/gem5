@@ -218,7 +218,7 @@ PhysicalMemory::createBackingStore(
         map_offset = 0;
     } else {
         // Newly create backstore will be located after previous one.
-        map_offset = sharedBackstoreSize;
+        map_offset = range.start();
         // mmap requires the offset to be multiple of page, so we need to
         // upscale the range size.
         sharedBackstoreSize += roundUp(range.size(), pageSize);

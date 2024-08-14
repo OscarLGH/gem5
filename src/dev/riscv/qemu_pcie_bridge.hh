@@ -1,6 +1,8 @@
 #ifndef __DEV_RISCV_QEMU_PCIE_BRIDGE_HH__
 #define __DEV_RISCV_QEMU_PCIE_BRIDGE_HH__
 
+#include <semaphore.h>
+
 #include "dev/riscv/hifive.hh"
 #include "dev/riscv/plic_dma_device.hh"
 #include "dev/virtio/base.hh"
@@ -25,6 +27,15 @@ class QemuPcieBridge : public PlicDmaDevice
 
     int node_index;
     int interrupt_id;
+
+    typedef struct qemuMmioCmd {
+      bool rw;
+      int length;
+      uint64_t addr;
+      uint64_t data;
+    } qemuMmioCmd;
+
+    int qemu_fd;
 
   protected: // BasicPioDevice
     Tick read(PacketPtr pkt) override;
