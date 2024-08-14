@@ -35,7 +35,8 @@ class QemuPcieBridge : public PlicDmaDevice
       uint64_t data;
     } qemuMmioCmd;
 
-    int qemu_fd;
+    int qemu_fd_req;
+    int qemu_fd_resp;
 
   protected: // BasicPioDevice
     Tick read(PacketPtr pkt) override;

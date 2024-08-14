@@ -23,8 +23,8 @@ QemuPcieBridge::QemuPcieBridge(const QemuPcieBridgeParams &params)
 {
     node_index = dev_cnt++;
     this->schedule(pollingEvent, nextCycle());
-    const char *qemu_cmd_fifo = "qemu-fifo";
-    qemu_fd = open(qemu_cmd_fifo, O_RDONLY | O_NONBLOCK, 0644);
+    qemu_fd_req = open("/tmp/qemu-fifo-req", O_RDONLY | O_NONBLOCK, 0644);
+    qemu_fd_resp = open("/tmp/qemu-fifo-resp", O_RDONLY | O_NONBLOCK, 0644);
 }
 
 QemuPcieBridge::~QemuPcieBridge()
@@ -111,13 +111,19 @@ QemuPcieBridge::write(Addr offset, uint32_t value)
 void
 QemuPcieBridge::polling_event_callback()
 {
-    DPRINTF(QemuPcieBridge, "node %d polling QEMU access...\n", node_index);
-    qemuMmioCmd cmd;
-    ssize_t num_read = ::read(qemu_fd, (void *)&cmd, (size_t)sizeof(cmd));
-    if (num_read == -1) {
-      DPRINTF(QemuPcieBridge, "no qemu data.\n");
+    //DPRINTF(QemuPcieBridge, "node %d polling QEMU access...\n", node_index);
+    qemuMmioCmd cmd = {0};
+    ssize_t num_read = ::read(qemu_fd_req, (void *)&cmd, (size_t)sizeof(cmd));
+    if (num_read != sizeof(cmd)) {
+      //DPRINTF(QemuPcieBridge, "no qemu data.\n");
     } else {
-      DPRINTF(QemuPcieBridge, "Got qemu cmd:addr = %llx size = %d ,%s.\n", cmd.addr, cmd.length, cmd.rw ? "R" : "W");
+      DPRINTF(QemuPcieBridge, "Got qemu cmd:addr = %llx size = %d, %s.\n", cmd.addr, cmd.length, cmd.rw ? "W" : "R");
+      if (!cmd.rw) {
+        dmaRead((Addr)cmd.addr, cmd.length, NULL, (uint8_t *)&cmd.data, 0, 0, 0);
+        ssize_t num_write = ::write(qemu_fd_resp, (void *)&cmd, (size_t)sizeof(cmd));
+      } else {
+        dmaWrite((Addr)cmd.addr, cmd.length, NULL, (uint8_t *)&cmd.data, 0, 0, 0);
+      }
     }
     this->schedule(pollingEvent, nextCycle());
 }
