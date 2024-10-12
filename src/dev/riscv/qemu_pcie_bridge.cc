@@ -25,6 +25,8 @@ QemuPcieBridge::QemuPcieBridge(const QemuPcieBridgeParams &params)
     this->schedule(pollingEvent, nextCycle());
     qemu_fd_req = open("/tmp/qemu-fifo-req", O_RDONLY | O_NONBLOCK, 0644);
     qemu_fd_resp = open("/tmp/qemu-fifo-resp", O_RDONLY | O_NONBLOCK, 0644);
+    qemu_fd_irq = open("/tmp/qemu-fd-irq", O_RDWR, 0644);
+    memset(reg, 0, sizeof(reg));
 }
 
 QemuPcieBridge::~QemuPcieBridge()
@@ -47,14 +49,20 @@ QemuPcieBridge::read(PacketPtr pkt)
     return 0;
 }
 
-uint32_t
+uint64_t
 QemuPcieBridge::read(Addr offset)
 {
     switch(offset) {
-      case REG0:
-        return 0xffffffff;
-      case REG1:
-        return 0x12345678;
+      case PCIE_DOORBELL_H2D:
+        return 0xffffffffffffffff;
+      case PCIE_MSG_TYPE_H2D:
+      case PCIE_MSG_DATA_H2D:
+        return reg[offset / 8];
+      case PCIE_DOORBELL_D2H:
+        return 0xffffffffffffffff;
+      case PCIE_MSG_TYPE_D2H:
+      case PCIE_MSG_DATA_D2H:
+        return reg[offset / 8];
       default:
         warn("Unhandled read offset (0x%x)\n", offset);
         return 0;
@@ -71,39 +79,34 @@ QemuPcieBridge::write(PacketPtr pkt)
 
     DPRINTF(QemuPcieBridge, "    value: 0x%llx\n", size == 8 ? pkt->getLE<uint64_t>() : pkt->getLE<uint32_t>());
     pkt->makeResponse();
-    write(offset, pkt->getLE<uint32_t>());
+    write(offset, pkt->getLE<uint64_t>());
     return 0;
 }
 
 void
-QemuPcieBridge::write(Addr offset, uint32_t value)
+QemuPcieBridge::write(Addr offset, uint64_t value)
 {
+    ssize_t num_write;
     switch(offset) {
-      case REG0:
-      {
-        //TODO dma opeartions.
-        //void
-        //dmaRead(Addr addr, int size, Event *event, uint8_t *data,
-        //    uint32_t sid, uint32_t ssid, Tick delay=0)
-        //dmaWrite(Addr addr, int size, Event *event, uint8_t *data,
-        //     uint32_t sid, uint32_t ssid, Tick delay=0)
-        //struct mem_data data;
-
-        //dmaRead((Addr)inst_info.src1, inst_info.src1_len, NULL, (uint8_t *)data.src1, 0, 0, 0);
-        //dmaRead((Addr)inst_info.src2, inst_info.src1_len, NULL, (uint8_t *)data.src2, 0, 0, 0);
-        //dmaRead((Addr)inst_info.src3, inst_info.src1_len, NULL, (uint8_t *)data.src3, 0, 0, 0);
-        reg[0] = value;
+      case PCIE_DOORBELL_H2D:
         kick();
         break;
-      }
-      case REG1:
-      {
-        DPRINTF(QemuPcieBridge, "get REG1 write.\n");
-        reg[1] = value;
+      case PCIE_MSG_TYPE_H2D:
+        reg[offset / 8] = value;
         break;
-      }
+      case PCIE_MSG_DATA_H2D:
+        reg[offset / 8] = value;
+      case PCIE_DOORBELL_D2H:
+        num_write = ::write(qemu_fd_irq, (void *)&value, (size_t)sizeof(value));
+        break;
+      case PCIE_MSG_TYPE_D2H:
+        reg[offset / 8] = value;
+        break;
+      case PCIE_MSG_DATA_D2H:
+        reg[offset / 8] = value;
+        break;
       default:
-        warn("Unhandled read offset (0x%x)\n", offset);
+        warn("Unhandled write offset (0x%x)\n", offset);
         break;
     }
 }
@@ -117,7 +120,7 @@ QemuPcieBridge::polling_event_callback()
     if (num_read != sizeof(cmd)) {
       //DPRINTF(QemuPcieBridge, "no qemu data.\n");
     } else {
-      DPRINTF(QemuPcieBridge, "Got qemu cmd:addr = %llx size = %d, %s.\n", cmd.addr, cmd.length, cmd.rw ? "W" : "R");
+      //DPRINTF(QemuPcieBridge, "Got qemu cmd:addr = %llx size = %d, %s.\n", cmd.addr, cmd.length, cmd.rw ? "W" : "R");
       if (!cmd.rw) {
         dmaRead((Addr)cmd.addr, cmd.length, NULL, (uint8_t *)&cmd.data, 0, 0, 0);
         ssize_t num_write = ::write(qemu_fd_resp, (void *)&cmd, (size_t)sizeof(cmd));
@@ -132,7 +135,7 @@ void
 QemuPcieBridge::kick()
 {
     DPRINTF(QemuPcieBridge, "kick(): Sending interrupt...\n");
-    setInterrupts(1);
+    setInterrupts(interrupt_id);
 }
 
 void

@@ -37,6 +37,7 @@ class QemuPcieBridge : public PlicDmaDevice
 
     int qemu_fd_req;
     int qemu_fd_resp;
+    int qemu_fd_irq;
 
   protected: // BasicPioDevice
     Tick read(PacketPtr pkt) override;
@@ -47,13 +48,16 @@ class QemuPcieBridge : public PlicDmaDevice
 
     enum : Addr
     {
-        REG0 = 0x0,
-        REG1 = 0x4,
-        REG2 = 0x8
+        PCIE_DOORBELL_H2D = 0x0,
+        PCIE_MSG_TYPE_H2D = 0x8,
+        PCIE_MSG_DATA_H2D = 0x10,
+        PCIE_DOORBELL_D2H = 0x100,
+        PCIE_MSG_TYPE_D2H = 0x108,
+        PCIE_MSG_DATA_D2H = 0x110,
     };
 
-    uint32_t read(Addr offset);
-    void write(Addr offset, uint32_t value);
+    uint64_t read(Addr offset);
+    void write(Addr offset, uint64_t value);
 
     void kick();
     void setInterrupts(uint32_t value);
@@ -63,7 +67,7 @@ class QemuPcieBridge : public PlicDmaDevice
     uint32_t pageSize;
     uint32_t interruptStatus;
 
-    uint32_t reg[16];
+    uint64_t reg[0x200];
 };
 
 } // namespace RiscvISA
