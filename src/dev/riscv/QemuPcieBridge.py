@@ -8,8 +8,14 @@ class QemuPcieBridge(PlicDmaDevice):
     type = "QemuPcieBridge"
     cxx_header = "dev/riscv/qemu_pcie_bridge.hh"
     cxx_class = "gem5::RiscvISA::QemuPcieBridge"
-    pio_size = 0x20000000
+    pio_size = 0x10000000
     interrupt_id = Param.Int("PLIC Interrupt ID")
+    fifo_path = Param.String("")
+    tx_fifo_req_name = Param.String("")
+    tx_fifo_resp_name = Param.String("")
+    rx_fifo_req_name = Param.String("")
+    rx_fifo_resp_name = Param.String("")
+    remote_shm_name = Param.String("")
 
     def generateDeviceTree(self, state):
         node = self.generatePlicDeviceNode(state, "qemu_pcie_bridge,mmio")

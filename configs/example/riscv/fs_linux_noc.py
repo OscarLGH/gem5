@@ -156,6 +156,55 @@ parser.add_argument(
     type=str,
     help="The root directory for files exposed to semihosting",
 )
+
+parser.add_argument(
+    "--shm",
+    default="gem5_share_memory",
+    type=str,
+    help="gem5 share memory",
+)
+
+parser.add_argument(
+    "--remote_shm",
+    default="gem5_share_memory",
+    type=str,
+    help="remote gem5 share memory",
+)
+
+parser.add_argument(
+    "--ex_pkt_path",
+    default="/tmp/",
+    type=str,
+    help="",
+)
+
+parser.add_argument(
+    "--rx_req_name",
+    default="/tmp/qemu-fifo-req",
+    type=str,
+    help="",
+)
+parser.add_argument(
+    "--rx_resp_name",
+    default="/tmp/qemu-fifo-resp",
+    type=str,
+    help="",
+)
+
+parser.add_argument(
+    "--tx_req_name",
+    default="/tmp/qemu-fifo-req",
+    type=str,
+    help="",
+)
+parser.add_argument(
+    "--tx_resp_name",
+    default="/tmp/qemu-fifo-resp",
+    type=str,
+    help="",
+)
+
+
 # ---------------------------- Parse Options --------------------------- #
 args = parser.parse_args()
 
@@ -186,7 +235,11 @@ DRAM_OFFSET = 0x80000000
 DRAM_SIZE = 0x80000000
 
 system.mem_mode = mem_mode
-system.shared_backstore = "gem5_share_memory"
+
+if args.shm:
+    system.shared_backstore = args.shm
+else:
+    system.shared_backstore = "gem5_share_memory"
 #system.mem_ranges = [AddrRange(start=0x80000000, size=mdesc.mem())]
 
 for i in range(MAX_CHIP):
@@ -218,6 +271,62 @@ system.platform = HiFive()
 system.platform.rtc = RiscvRTC(frequency=Frequency("100MHz"))
 system.platform.clint.int_pin = system.platform.rtc.int_pin
 system.platform.pci_host.pio = system.iobus.mem_side_ports
+
+system.platform.qemu_pcie_bridge.fifo_path = args.ex_pkt_path
+system.platform.qemu_pcie_bridge.tx_fifo_req_name = args.tx_req_name
+system.platform.qemu_pcie_bridge.tx_fifo_resp_name = args.tx_resp_name
+system.platform.qemu_pcie_bridge.rx_fifo_req_name = args.rx_req_name
+system.platform.qemu_pcie_bridge.rx_fifo_resp_name = args.rx_resp_name
+system.platform.qemu_pcie_bridge.remote_shm_name = args.remote_shm
+
+system.platform.c2c_pcie_bridge1.fifo_path = args.ex_pkt_path
+system.platform.c2c_pcie_bridge1.tx_fifo_req_name = args.tx_req_name
+system.platform.c2c_pcie_bridge1.tx_fifo_resp_name = args.tx_resp_name
+system.platform.c2c_pcie_bridge1.rx_fifo_req_name = args.rx_req_name
+system.platform.c2c_pcie_bridge1.rx_fifo_resp_name = args.rx_resp_name
+system.platform.c2c_pcie_bridge1.remote_shm_name = args.remote_shm
+
+system.platform.c2c_pcie_bridge2.fifo_path = args.ex_pkt_path
+system.platform.c2c_pcie_bridge2.tx_fifo_req_name = args.tx_req_name
+system.platform.c2c_pcie_bridge2.tx_fifo_resp_name = args.tx_resp_name
+system.platform.c2c_pcie_bridge2.rx_fifo_req_name = args.rx_req_name
+system.platform.c2c_pcie_bridge2.rx_fifo_resp_name = args.rx_resp_name
+system.platform.c2c_pcie_bridge2.remote_shm_name = args.remote_shm
+
+system.platform.c2c_pcie_bridge3.fifo_path = args.ex_pkt_path
+system.platform.c2c_pcie_bridge3.tx_fifo_req_name = args.tx_req_name
+system.platform.c2c_pcie_bridge3.tx_fifo_resp_name = args.tx_resp_name
+system.platform.c2c_pcie_bridge3.rx_fifo_req_name = args.rx_req_name
+system.platform.c2c_pcie_bridge3.rx_fifo_resp_name = args.rx_resp_name
+system.platform.c2c_pcie_bridge3.remote_shm_name = args.remote_shm
+
+system.platform.c2c_pcie_bridge4.fifo_path = args.ex_pkt_path
+system.platform.c2c_pcie_bridge4.tx_fifo_req_name = args.tx_req_name
+system.platform.c2c_pcie_bridge4.tx_fifo_resp_name = args.tx_resp_name
+system.platform.c2c_pcie_bridge4.rx_fifo_req_name = args.rx_req_name
+system.platform.c2c_pcie_bridge4.rx_fifo_resp_name = args.rx_resp_name
+system.platform.c2c_pcie_bridge4.remote_shm_name = args.remote_shm
+
+system.platform.c2c_pcie_bridge5.fifo_path = args.ex_pkt_path
+system.platform.c2c_pcie_bridge5.tx_fifo_req_name = args.tx_req_name
+system.platform.c2c_pcie_bridge5.tx_fifo_resp_name = args.tx_resp_name
+system.platform.c2c_pcie_bridge5.rx_fifo_req_name = args.rx_req_name
+system.platform.c2c_pcie_bridge5.rx_fifo_resp_name = args.rx_resp_name
+system.platform.c2c_pcie_bridge5.remote_shm_name = args.remote_shm
+
+system.platform.c2c_pcie_bridge6.fifo_path = args.ex_pkt_path
+system.platform.c2c_pcie_bridge6.tx_fifo_req_name = args.tx_req_name
+system.platform.c2c_pcie_bridge6.tx_fifo_resp_name = args.tx_resp_name
+system.platform.c2c_pcie_bridge6.rx_fifo_req_name = args.rx_req_name
+system.platform.c2c_pcie_bridge6.rx_fifo_resp_name = args.rx_resp_name
+system.platform.c2c_pcie_bridge6.remote_shm_name = args.remote_shm
+
+system.platform.c2c_pcie_bridge7.fifo_path = args.ex_pkt_path
+system.platform.c2c_pcie_bridge7.tx_fifo_req_name = args.tx_req_name
+system.platform.c2c_pcie_bridge7.tx_fifo_resp_name = args.tx_resp_name
+system.platform.c2c_pcie_bridge7.rx_fifo_req_name = args.rx_req_name
+system.platform.c2c_pcie_bridge7.rx_fifo_resp_name = args.rx_resp_name
+system.platform.c2c_pcie_bridge7.remote_shm_name = args.remote_shm
 
 # VirtIOMMIO
 if args.disk_image:
